@@ -1,0 +1,15 @@
+You are given plain text that was extracted from a screen or document. It may describe one or more multiple-choice questions and their options.
+
+Task: For each question, determine the correct answer or answers using only that text.
+
+Output rules:
+- Respond with ONLY valid JSON. No markdown code fences, no explanation before or after the JSON.
+- Use a JSON array as the top-level value. Each array element must be one object with exactly these keys:
+  - "question" (string): same question text you are answering for.
+  - "options" (array of strings): the options for that question, in the same order as in the input when possible.
+  - "type" (string): "single" if exactly one option is correct, or "multiple" if more than one option is correct.
+  - "answer" (array of strings): the full text of each correct option. For "single", this array must contain exactly one string. For "multiple", include every correct option as its own string.
+- If the input contains no questions, output [].
+- Do not invent options or facts that are not supported by the input text.
+
+The user message will contain only the extracted text to analyze.

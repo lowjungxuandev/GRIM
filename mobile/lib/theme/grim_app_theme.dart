@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'grim_colors.dart';
 import 'grim_text_theme_utils.dart';
 import 'grim_theme_extension.dart';
 
 /// Global GRIM dark theme (neon lime on near-black).
 abstract final class GrimAppTheme {
-  static const Color _accent = Color(0xFFD2FF3A);
-  static const Color _canvas = Color(0xFF080A0C);
-  static const Color _surface = Color(0xFF12161C);
-  static const Color _onSurface = Color(0xFFE8EEF2);
+  static const Color _accent = GrimColors.accent;
+  static const Color _canvas = GrimColors.scaffold;
+  static const Color _surface = GrimColors.surface;
+  static const Color _onSurface = GrimColors.onSurface;
 
   /// Single app theme: dark, Material 3.
   static ThemeData get dark {
@@ -23,40 +24,41 @@ abstract final class GrimAppTheme {
     );
 
     final colorScheme = baseScheme.copyWith(
-      surfaceContainerLow: const Color(0xFF0E1218),
-      surfaceContainerHigh: const Color(0xFF1A1F28),
-      outline: const Color(0xFF2A3038),
+      surfaceContainerLow: GrimColors.surfaceAlt,
+      surfaceContainerHigh: GrimColors.surfaceHigh,
+      outline: GrimColors.outline,
       outlineVariant: const Color(0xFF3A424D),
     );
 
-    final mergedText = Typography.material2021(
-      platform: TargetPlatform.iOS,
-      colorScheme: colorScheme,
-    ).black.merge(
-      TextTheme(
-        headlineLarge: const TextStyle(
-          color: _accent,
-          fontSize: 28,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.8,
-        ),
-        titleMedium: TextStyle(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w700,
-          fontSize: 15,
-        ),
-        bodyMedium: TextStyle(
-          color: colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w500,
-          fontSize: 13,
-        ),
-        labelLarge: const TextStyle(
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
-          fontSize: 12,
-        ),
-      ),
-    );
+    final mergedText =
+        Typography.material2021(
+          platform: TargetPlatform.iOS,
+          colorScheme: colorScheme,
+        ).black.merge(
+          TextTheme(
+            headlineLarge: const TextStyle(
+              color: _accent,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+            ),
+            titleMedium: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+            ),
+            bodyMedium: TextStyle(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
+            ),
+            labelLarge: const TextStyle(
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+              fontSize: 12,
+            ),
+          ),
+        );
 
     // JetBrains Mono is on Google Fonts; see https://fonts.google.com/specimen/JetBrains+Mono
     final textTheme = scaleTextThemeFontSizes(
@@ -96,7 +98,9 @@ abstract final class GrimAppTheme {
           backgroundColor: _accent,
           foregroundColor: colorScheme.onPrimary,
           disabledBackgroundColor: colorScheme.outline.withValues(alpha: 0.45),
-          disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.38),
+          disabledForegroundColor: colorScheme.onSurface.withValues(
+            alpha: 0.38,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: const StadiumBorder(),
           // Explicit size: omitting fontSize lets M3 fall back to large defaults.
@@ -141,7 +145,9 @@ abstract final class GrimAppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: _accent,
           side: BorderSide(color: colorScheme.outline),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           textStyle: textTheme.labelLarge!.copyWith(
             color: _accent,
@@ -153,7 +159,7 @@ abstract final class GrimAppTheme {
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: Color(0xFFDFFF4F),
+        backgroundColor: GrimColors.accentAlt,
         foregroundColor: Colors.black,
         elevation: 6,
       ),
@@ -167,7 +173,7 @@ abstract final class GrimAppTheme {
         tileColor: Colors.transparent,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: const Color(0xFF1E2329),
+        backgroundColor: GrimColors.surfaceRaised,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         titleTextStyle: textTheme.titleLarge?.copyWith(color: _onSurface),

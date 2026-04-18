@@ -1,1 +1,1 @@
-export 'src/grim_sender_camera_page.dart';
+export 'src/presentation/pages/grim_sender_camera_page.dart';

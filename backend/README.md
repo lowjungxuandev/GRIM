@@ -40,13 +40,15 @@ Optional:
 - `GET /health`
   - integration checks (Firebase Realtime Database, NVIDIA NIM, Cloudinary); **200** or **503**; JSON matches OpenAPI schema `IntegrationHealthReport`
 - `POST /api/v1/import`
-  - accepts `multipart/form-data`
-  - required field: `image`
+  - accepts `multipart/form-data` with exactly one file part named **`image`** (e.g. `<input name="image" type="file">`)
+  - **curl:** use **`-F` / `--form`** and **do not** set `Content-Type` yourself — curl must add `boundary=…`. Use one part type, e.g. **`-F 'image=@photo.jpg;type=image/jpeg'`** (not a comma-separated list of MIME types)
+  - **Scalar:** if “Try it” fails, remove a manual **`Content-Type: multipart/form-data`** header so the UI can send a proper boundary
   - returns **200** `text/event-stream` (SSE): status events, then terminal JSON (success row or `error`)
   - on success, broadcasts FCM to topic `grim_new_result` (or `GRIM_FCM_TOPIC`) so subscribed devices can call export
 - `GET /api/v1/export`
-  - optional `limit` (default 20, max 50)
-  - returns `200 { items }` — newest first by `createdAt`; completed rows add `finalText`, `imageUrl`, `updatedAt`; failed rows add `errorMessage`, `updatedAt`
+  - optional `page` (default 1), optional `limit` (default 20, max 50)
+  - returns `200` paginated JSON (`data`, `page`, `limit`, `is_next`); newest first by `createdAt`; completed rows add `finalText`, `imageUrl`, `updatedAt`; failed rows add `errorMessage`, `updatedAt`
+- `GET /api/v1/prompts`, `PUT /api/v1/prompts` — read or overwrite Mistral (extract) / Step prompt templates (`backend/prompts/*.txt` by default; optional `GRIM_PROMPTS_DIR`, `GRIM_PROMPT_ADMIN_SECRET`). **PUT** accepts **`multipart/form-data`** with file or text fields **`extract_text`** and **`analyzing_text`**, or **`application/json`** with **`extractTextPrompt`** / **`analyzingTextPrompt`**.
 
 ### Docs
 
@@ -55,4 +57,4 @@ Reference docs used to design the current implementation and future follow-up wo
 - **`docs/dependencies/`** — vendor integration notes (Cloudinary, NVIDIA, Scalar, Firebase); start at [`docs/dependencies/README.md`](../docs/dependencies/README.md).
 - Repository **`docs/`** (top level): `workflow.md` (target end-to-end backend flow), `specification.md`, `testing-plan.md`, plus `code-rules/`, `instructions/`, `design/`.
 
-The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, NVIDIA Gemma, and NVIDIA Step into **`backend/src/`**. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
+The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, NVIDIA Mistral Large (streamed vision extract), and NVIDIA Step into **`backend/src/`**. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.

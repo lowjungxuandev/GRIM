@@ -1,1 +1,1 @@
-export 'src/grim_receiver_grid_page.dart';
+export 'src/presentation/pages/grim_receiver_grid_page.dart';

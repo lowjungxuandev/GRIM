@@ -142,10 +142,7 @@ abstract final class GrimTheme {
         color: GrimColors.outline,
         thickness: 1,
       ),
-      iconTheme: const IconThemeData(
-        color: GrimColors.onSurface,
-        size: 24,
-      ),
+      iconTheme: const IconThemeData(color: GrimColors.onSurface, size: 24),
       dialogTheme: DialogThemeData(
         backgroundColor: const Color(0xFF1E2329),
         surfaceTintColor: Colors.transparent,
@@ -163,8 +160,9 @@ abstract final class GrimTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: GrimColors.surface,
-        contentTextStyle:
-            textTheme.bodyMedium?.copyWith(color: GrimColors.onSurface),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: GrimColors.onSurface,
+        ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),

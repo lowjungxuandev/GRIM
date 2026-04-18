@@ -2,7 +2,7 @@
 
 1. Mobile calls `POST /api/v1/import` with an image.
 2. Backend responds **200** with **`text/event-stream`** and streams JSON `data:` lines until processing finishes: progress `{"status":"extracting_text"}` and `{"status":"analyzing_text"}`, then either the full success row (same fields as under `uploads/{id}`) or `{"error":{…}}`.
-3. Backend runs the pipeline in order: **Cloudinary** (store image) → **Gemma** (extract text) → **Step** (analyze / final text) → **Realtime Database** (`uploads/{id}`, one write when the row is ready or on failure). If the pipeline succeeds, it then sends an FCM **topic** data message (`kind: new_result`) so subscribed clients can refresh.
+3. Backend runs the pipeline in order: **Cloudinary** (store image) → **Mistral Large** (vision extract, streamed from NVIDIA) → **Step** (analyze / final text) → **Realtime Database** (`uploads/{id}`, one write when the row is ready or on failure). If the pipeline succeeds, it then sends an FCM **topic** data message (`kind: new_result`) so subscribed clients can refresh.
 4. Mobile calls `GET /api/v1/export` for newest-first rows (see `backend/openapi.yaml` for `data`, `page`, `limit`, `is_next`).
 
 ## Routes
@@ -16,14 +16,14 @@ sequenceDiagram
   participant M as Mobile
   participant B as Backend
   participant C as Cloudinary
-  participant G as Gemma
+  participant V as Mistral Large
   participant S as Step
   participant R as Realtime DB
   participant F as FCM
   M->>B: POST /api/v1/import (image)
   B->>C: upload image
   B-->>M: SSE extracting_text
-  B->>G: extract text
+  B->>V: vision extract (SSE upstream)
   B-->>M: SSE analyzing_text
   B->>S: final text
   B->>R: persist under uploads/

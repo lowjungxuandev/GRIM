@@ -1,3 +1,4 @@
+import path from "node:path";
 import "dotenv/config";
 import type { AppDependencies } from "./app";
 import { createApp } from "./app";
@@ -9,18 +10,21 @@ import { CloudinaryImageStore } from "./libs/cloudinary/utils";
 import { DEFAULT_FCM_BROADCAST_TOPIC, FirebaseNotifier } from "./libs/firebase/fcm";
 import { getFirebaseAdminApp } from "./libs/firebase/admin";
 import { FirebaseUploadRepository, getRealtimeDb } from "./libs/firebase/realtime";
-import { NvidiaGemmaTextExtractor } from "./libs/nvidia/gemma-3n-e4b-it";
+import { GrimPromptSettings } from "./libs/utils/prompt.util";
+import { NvidiaMistralLargeTextExtractor } from "./libs/nvidia/mistral-large-3-675b-instruct";
 import { NvidiaStepFinalTextBuilder } from "./libs/nvidia/step-3.5-flash";
 
 function createProductionDependencies(env: ServerEnv): AppDependencies {
+  const promptsDir = env.GRIM_PROMPTS_DIR ?? path.join(process.cwd(), "prompts");
+  const promptSettings = GrimPromptSettings.loadFromDirectory(promptsDir);
   const firebaseApp = getFirebaseAdminApp(env);
   const realtimeDb = getRealtimeDb(firebaseApp);
   const uploadRepository = new FirebaseUploadRepository(realtimeDb);
   const exportService = new ExportService(uploadRepository);
   const importService = new ImportService({
     uploadRepository,
-    textExtractor: new NvidiaGemmaTextExtractor(env.NVAPI_KEY),
-    finalTextBuilder: new NvidiaStepFinalTextBuilder(env.NVAPI_KEY),
+    textExtractor: new NvidiaMistralLargeTextExtractor(env.NVAPI_KEY, () => promptSettings.getExtractTextPrompt()),
+    finalTextBuilder: new NvidiaStepFinalTextBuilder(env.NVAPI_KEY, () => promptSettings.getAnalyzingTextPrompt()),
     imageStorage: new CloudinaryImageStore(),
     notifier: new FirebaseNotifier(firebaseApp, env.GRIM_FCM_TOPIC ?? DEFAULT_FCM_BROADCAST_TOPIC),
     logger: console
@@ -30,7 +34,9 @@ function createProductionDependencies(env: ServerEnv): AppDependencies {
     importService,
     exportService,
     runHealthChecks: createHealthRunner(realtimeDb, env.NVAPI_KEY),
-    logger: console
+    logger: console,
+    promptSettings,
+    promptAdminSecret: env.GRIM_PROMPT_ADMIN_SECRET
   };
 }
 

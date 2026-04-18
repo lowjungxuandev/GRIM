@@ -1,9 +1,13 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { createApp } from "../src/app";
 import type { ImportServiceDependencies, Logger } from "../src/api/v1/model/services.model";
 import type { HealthReport } from "../src/api/v1/model/health.model";
 import type { ImportService } from "../src/api/v1/model/services.model";
 import { ExportService } from "../src/api/v1/services/export.service";
 import { ImportService as ImportServiceImpl } from "../src/api/v1/services/import.service";
+import { GrimPromptSettings } from "../src/libs/utils/prompt.util";
 import { InMemoryUploadRepository } from "./in-memory-upload-repository";
 
 export const silentLogger: Logger = {
@@ -34,6 +38,12 @@ export type BuildTestAppInput = {
   exportService?: ExportService;
   runHealthChecks?: () => Promise<HealthReport>;
   logger?: Logger;
+  /** When set, `GET`/`PUT /api/v1/prompts` require this secret via `X-Grim-Prompt-Secret`. */
+  promptAdminSecret?: string;
+  /** Seed file `extract_text_prompt.txt` in an isolated temp prompts directory (default short test string). */
+  initialExtractPrompt?: string;
+  /** Seed file `analyzing_text_prompt.txt` in an isolated temp prompts directory (default short test string). */
+  initialAnalyzingPrompt?: string;
 };
 
 const noopImportService: ImportService = {
@@ -42,14 +52,32 @@ const noopImportService: ImportService = {
   }
 };
 
+function createIsolatedPromptSettings(input: BuildTestAppInput): GrimPromptSettings {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "grim-prompts-"));
+  fs.writeFileSync(
+    path.join(dir, "extract_text_prompt.txt"),
+    input.initialExtractPrompt ?? "test extract prompt",
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(dir, "analyzing_text_prompt.txt"),
+    input.initialAnalyzingPrompt ?? "test analyzing prompt",
+    "utf8"
+  );
+  return GrimPromptSettings.loadFromDirectory(dir);
+}
+
 export function buildTestApp(input: BuildTestAppInput = {}) {
   const importService = input.importService ?? noopImportService;
   const exportService = input.exportService ?? new ExportService(new InMemoryUploadRepository());
   const runHealthChecks = input.runHealthChecks ?? (async () => stableOkHealth());
+  const promptSettings = createIsolatedPromptSettings(input);
   return createApp({
     importService,
     exportService,
     runHealthChecks,
+    promptSettings,
+    promptAdminSecret: input.promptAdminSecret,
     logger: input.logger ?? silentLogger
   });
 }

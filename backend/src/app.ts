@@ -8,6 +8,8 @@ import { mapRequestError, wrapAsync } from "./libs/utils/http.util";
 import { createHealthRouter } from "./api/v1/routes/health.route";
 import { createImportRouter } from "./api/v1/routes/import.route";
 import { createExportRouter } from "./api/v1/routes/export.route";
+import { createPromptsRouter } from "./api/v1/routes/prompts.route";
+import type { GrimPromptSettings } from "./libs/utils/prompt.util";
 
 const OPENAPI_ROUTE = "/openapi.yaml";
 const DOCS_ROUTE = "/docs";
@@ -17,16 +19,21 @@ export type AppDependencies = {
   exportService: ExportService;
   runHealthChecks: () => Promise<HealthReport>;
   logger?: Logger;
+  promptSettings: GrimPromptSettings;
+  /** When set, prompt routes require `X-Grim-Prompt-Secret`. */
+  promptAdminSecret?: string;
 };
 
 export function createApp({
   importService,
   exportService,
   runHealthChecks,
+  promptSettings,
+  promptAdminSecret,
   logger = console
 }: AppDependencies) {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: "2mb" }));
 
   const openApiPath = path.resolve(__dirname, "..", "openapi.yaml");
 
@@ -66,6 +73,7 @@ export function createApp({
   const v1Router = express.Router();
   v1Router.use(createImportRouter(importService));
   v1Router.use(createExportRouter(exportService));
+  v1Router.use(createPromptsRouter(promptSettings, { adminSecret: promptAdminSecret }));
   app.use("/api/v1", v1Router);
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

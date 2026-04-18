@@ -31,8 +31,8 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 | Firebase | `libs/firebase/admin.ts` | Admin app init from env |
 | | `libs/firebase/realtime.ts` | `getRealtimeDb`, `FirebaseUploadRepository` |
 | | `libs/firebase/fcm.ts` | `FirebaseNotifier`, default topic constant |
-| NVIDIA | `libs/nvidia/api.client.ts` | Shared chat HTTP + response normalization |
-| | `libs/nvidia/gemma-3n-e4b-it.ts` | Gemma image text extraction |
+| NVIDIA | `libs/nvidia/api.client.ts` | Shared chat HTTP, JSON + SSE stream helpers, response normalization |
+| | `libs/nvidia/mistral-large-3-675b-instruct.ts` | Mistral Large vision extract (streamed SSE) |
 | | `libs/nvidia/step-3.5-flash.ts` | Step final text |
 | Cloudinary | `libs/cloudinary/utils.ts` | Upload store, mapping, ping used by health |
 | Config | `libs/configs/env.config.ts` | `ServerEnv`, `loadServerEnv` |

@@ -1,0 +1,32 @@
+You are analyzing an image of a screen or monitor (for example a quiz, survey, or exam UI).
+
+Task: Extract every distinct question you can read, together with its answer options and any separate instruction line (for example “Select THREE”, “Choose two answers”).
+
+Output rules:
+- Respond with ONLY valid JSON. No markdown code fences, no explanation before or after the JSON.
+- Use a JSON array as the top-level value. Each array element must be one object with exactly these keys:
+  - "question" (string): the question stem as plain text only (do not merge UI lines like “(Select THREE)” into this field if they read as a separate instruction).
+  - "instructions" (string): extra UI text tied to how to answer (for example "(Select THREE)", "Choose all that apply"); use "" if there is none.
+  - "options" (array of strings): all visible choices in reading order, each option as a single string (often including a letter prefix like "A. …"); use [] if there are no discrete options.
+  - "type" (string): either "single" if the UI implies exactly one correct choice, or "multiple" if more than one choice may be correct.
+- If there are no readable questions, output an empty array: [].
+
+Expected output shape (follow this structure; content must come from the image, not this example):
+
+[
+  {
+    "question": "A bank is building a generative AI (GenAI) application that uses Amazon Bedrock to assess loan applications by using scanned financial documents. The application must extract structured data from the documents. The application must redact personally identifiable information (PII) before inference. The application must use foundation models (FMs) to generate approvals. The application must route low-confidence document extraction results to human reviewers who are within the same Region. The company must ensure that the application complies with strict Regional data residency and auditability requirements. The application must be able to scale to handle 25,000 applications each day and provide 99.9% availability. Which combination of solutions will meet these requirements?",
+    "instructions": "(Select THREE)",
+    "options": [
+      "A. Deploy Amazon Textract and Amazon Augmented AI (Amazon A2I) within the same Region to extract relevant data from the scanned documents. Route low-confidence pages to human reviewers.",
+      "B. Use AWS Lambda functions to detect and redact PII from submitted documents before inference. Apply Amazon Bedrock guardrails to prevent inappropriate or unauthorized content in model outputs. Configure Region-specific IAM roles to enforce data residency requirements and to control access to the extracted data.",
+      "C. Use Amazon Kendra and Amazon OpenSearch Service to extract field level values semantically from the uploaded documents before inference.",
+      "D. Store uploaded documents in Amazon S3 and apply object metadata. Configure IAM policies to store original documents within the same Region as each applicant. Enable object tagging for future audits.",
+      "E. Use AWS Glue Data Quality to validate the structured document data. Use AWS Step Functions to orchestrate a review workflow that includes a prompt engineering step that transforms validated data into optimized prompts before invoking Amazon Bedrock to assess loan applications.",
+      "F. Use Amazon SageMaker Clarify to generate fairness and bias reports based on model scoring decisions that Amazon Bedrock makes."
+    ],
+    "type": "multiple"
+  }
+]
+
+After your JSON rules reminder, the user message will include the image as a data URL on the following lines.

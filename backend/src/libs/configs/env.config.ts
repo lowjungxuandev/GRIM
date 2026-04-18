@@ -11,6 +11,10 @@ export type ServerEnv = {
    * FCM topic for `broadcastNewResult` (default `grim_new_result`). Clients must subscribe to this topic.
    */
   GRIM_FCM_TOPIC?: string;
+  /** Directory containing `extract_text_prompt.txt` and `analyzing_text_prompt.txt` (default `./prompts` from process cwd). */
+  GRIM_PROMPTS_DIR?: string;
+  /** When set, `GET`/`PUT /api/v1/prompts` require header `X-Grim-Prompt-Secret` with this exact value. */
+  GRIM_PROMPT_ADMIN_SECRET?: string;
 };
 
 export function loadServerEnv(): ServerEnv {
@@ -28,7 +32,9 @@ export function loadServerEnv(): ServerEnv {
     FIREBASE_DATABASE_URL: readRequiredEnv("FIREBASE_DATABASE_URL"),
     NVAPI_KEY: readRequiredEnv("NVAPI_KEY"),
     SCALAR_DOCS_URL: readOptionalEnv("SCALAR_DOCS_URL"),
-    GRIM_FCM_TOPIC: readOptionalEnv("GRIM_FCM_TOPIC")
+    GRIM_FCM_TOPIC: readOptionalEnv("GRIM_FCM_TOPIC"),
+    GRIM_PROMPTS_DIR: readOptionalEnv("GRIM_PROMPTS_DIR"),
+    GRIM_PROMPT_ADMIN_SECRET: readOptionalEnv("GRIM_PROMPT_ADMIN_SECRET")
   };
 }
 

@@ -10,13 +10,13 @@ Endpoints to test:
 
 `POST /api/v1/import` returns **200** with **`text/event-stream`**. The response body is Server-Sent Events: synthetic status lines (`extracting_text`, `analyzing_text`), then a terminal JSON object (success row or `error`).
 
-The handler must wait for **Cloudinary**, **Gemma**, **Step**, **Realtime Database**, and (on success) **FCM** as part of that same request (stream ends after those steps).
+The handler must wait for **Cloudinary**, **Mistral Large** (vision extract), **Step**, **Realtime Database**, and (on success) **FCM** as part of that same request (stream ends after those steps).
 
 ## Unit tests
 
 - request validation for `POST /api/v1/import`
 - request validation for `GET /api/v1/export` (for example invalid `limit`)
-- Gemma response parsing
+- Mistral streaming SSE aggregation (`extractDeltaFromSseEventLine` / `postNvidiaChatCompletionStream`)
 - Step response parsing
 - Realtime DB read and write helpers
 - FCM topic broadcast (`broadcastNewResult`) is invoked after a successful pipeline

@@ -70,7 +70,7 @@ Why this is enough:
 - `finalText` and `imageUrl` are what the mobile client needs when the pipeline succeeds
 - `errorMessage` appears when the pipeline fails
 
-**When import writes:** `ImportService` does **not** touch Realtime Database until after **Cloudinary** (image), **Gemma** (extracted text), and **Step** (final text) have completed. It then performs a single **`set`** on `uploads/{id}` with the full success payload (or a single **`set`** with `errorMessage` if the pipeline failed). The client receives progress and the final row (or terminal error) over the same **HTTP 200** `text/event-stream` response before this write completes from the client’s perspective (the stream’s last `data:` line reflects the persisted outcome).
+**When import writes:** `ImportService` does **not** touch Realtime Database until after **Cloudinary** (image), **Mistral Large** (extracted text), and **Step** (final text) have completed. It then performs a single **`set`** on `uploads/{id}` with the full success payload (or a single **`set`** with `errorMessage` if the pipeline failed). The client receives progress and the final row (or terminal error) over the same **HTTP 200** `text/event-stream` response before this write completes from the client’s perspective (the stream’s last `data:` line reflects the persisted outcome).
 
 ## Write data
 

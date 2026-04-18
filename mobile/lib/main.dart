@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:grim_splash/grim_splash.dart';
 
-import 'core/grim_core_page.dart';
 import 'theme/grim_app_theme.dart';
 
 void main() {
-  runApp(
-    const ProviderScope(
-      child: MainApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MainApp()));
 }
 
 class MainApp extends StatelessWidget {
@@ -28,7 +24,7 @@ class MainApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const GrimCorePage(),
+      home: const GrimSplashPage(),
     );
   }
 }

@@ -47,8 +47,11 @@ describe("loadServerEnv", () => {
     vi.stubEnv("SCALAR_DOCS_URL", " https://docs.example ");
     vi.stubEnv("GRIM_FCM_TOPIC", "");
     delete process.env.GRIM_FCM_TOPIC;
+    vi.stubEnv("GRIM_PROMPTS_DIR", "/tmp/prompts");
     const env = loadServerEnv();
     expect(env.SCALAR_DOCS_URL).toBe("https://docs.example");
     expect(env.GRIM_FCM_TOPIC).toBeUndefined();
+    expect(env.GRIM_PROMPTS_DIR).toBe("/tmp/prompts");
+    expect(env.GRIM_PROMPT_ADMIN_SECRET).toBeUndefined();
   });
 });
