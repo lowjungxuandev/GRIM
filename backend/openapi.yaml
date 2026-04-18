@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: Grim API
+  description: |
+    HTTP API for image **import**, **export**, and integration **health** checks.
+
+    **Interactive docs:** with the backend running, open **`/docs`** on the same origin for embedded [Scalar API Reference](https://scalar.com/products/api-references), or import this file’s URL elsewhere.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:3001
+    description: Local (change host/port if `PORT` or bind address differs)
+
+tags:
+  - name: health
+    description: Firebase, NVIDIA NIM, and Cloudinary readiness
+  - name: import
+    description: Multipart image upload; processing continues in the background
+  - name: export
+    description: Paginated newest-first list from Realtime Database (`page`, `limit`, `is_next`)
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Integration health
+      description: |
+        Parallel checks: **Firebase** Realtime Database (`/.info/serverTimeOffset`),
+        **NVIDIA NIM** `GET /v1/models` with your API key, **Cloudinary** management ping.
+
+        | HTTP | Meaning |
+        |------|---------|
+        | **200** | `ok: true` — all three checks succeeded |
+        | **503** | `ok: false` — at least one check failed (see per-service `error`) |
+      operationId: getHealth
+      responses:
+        "200":
+          description: All integration checks passed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationHealthReport"
+              examples:
+                allOk:
+                  summary: All integrations healthy
+                  value:
+                    ok: true
+                    firebase:
+                      ok: true
+                      latencyMs: 24
+                    nvidiaNim:
+                      ok: true
+                      latencyMs: 156
+                    cloudinary:
+                      ok: true
+                      latencyMs: 89
+        "503":
+          description: One or more checks failed (body still returns full report)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationHealthReport"
+              examples:
+                nvidiaUnauthorized:
+                  summary: NVIDIA key rejected (API reachable)
+                  value:
+                    ok: false
+                    firebase:
+                      ok: true
+                      latencyMs: 18
+                    nvidiaNim:
+                      ok: false
+                      latencyMs: 42
+                      error: NVIDIA NIM API rejected the API key (unauthorized)
+                    cloudinary:
+                      ok: true
+                      latencyMs: 71
+
+  /api/v1/import:
+    post:
+      tags: [import]
+      summary: Import image
+      description: |
+        **Content-Type:** `multipart/form-data`
+
+        | Part | Required | Notes |
+        |------|----------|--------|
+        | `image` | yes | Any `image/*` MIME type; max **500 MB** |
+
+        When the pipeline **succeeds**, the server sends an FCM **topic** data message (`kind: new_result`) so subscribed devices can refresh from `GET /api/v1/export`. Topic defaults to **`grim_new_result`** (override with env `GRIM_FCM_TOPIC`). No FCM send on pipeline failure.
+
+        **Response:** **202** with an empty JSON object `{}` as soon as the upload is accepted. Processing continues asynchronously: **Cloudinary** (image) → **Gemma** (extract) → **Step** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then FCM topic on success.
+      operationId: postImport
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: |
+                    Image bytes. Use a concrete `image/*` part Content-Type when possible
+                    (e.g. `image/jpeg` for `.jpg`). Do not send a comma-separated list of types.
+                    Tools that default to `application/octet-stream` are fine if the filename has a normal image extension.
+            examples:
+              minimal:
+                summary: Image only
+                value: {}
+      responses:
+        "202":
+          description: Import accepted; pipeline runs in the background
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportAccepted"
+              examples:
+                accepted:
+                  summary: Typical 202 body
+                  value: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/export:
+    get:
+      tags: [export]
+      summary: Export uploads
+      description: |
+        Returns a **paginated**, **newest-first** list of rows from Realtime Database (`uploads/{id}`). Each row has `createdAt`. When the pipeline has finished successfully, `finalText`, `imageUrl`, and `updatedAt` appear. On failure, `errorMessage` and `updatedAt` appear.
+
+        **Query:** optional `page` (default **1**, min **1**), optional `limit` (default **20**, max **50**, page size).
+
+        **Response:** `data` holds up to `limit` rows for the requested `page`; `page` and `limit` echo the resolved query; `is_next` is **true** when at least one more row exists after this page in newest-first order.
+      operationId: getExport
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Paginated export rows (`data`), newest-first by `createdAt`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportListResponse"
+              examples:
+                listDefaultLimit:
+                  summary: Pending, completed, and error rows
+                  value:
+                    page: 1
+                    limit: 20
+                    is_next: false
+                    data:
+                      - createdAt: 1745000002000
+                      - createdAt: 1745000001000
+                        updatedAt: 1745000001500
+                        finalText: "Rewritten answer text."
+                        imageUrl: https://res.cloudinary.com/demo/image/upload/v1/grim/upl_abc.png
+                      - createdAt: 1744999999000
+                        updatedAt: 1744999999500
+                        errorMessage: "provider failure"
+                pageWithMore:
+                  summary: First page with further rows available
+                  value:
+                    page: 1
+                    limit: 2
+                    is_next: true
+                    data:
+                      - createdAt: 1745000003000
+                      - createdAt: 1745000002000
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      description: 1-based page index. **Omitted ⇒ 1.**
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 1
+        example: 1
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size (1–50). **Omitted ⇒ 20.**
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 50
+        default: 20
+        example: 20
+
+  responses:
+    BadRequest:
+      description: Missing/invalid input (HTTP 400)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+          examples:
+            invalidLimit:
+              summary: Export — invalid limit
+              value:
+                error:
+                  code: INVALID_REQUEST
+                  message: limit must be a positive integer
+            invalidPage:
+              summary: Export — invalid page
+              value:
+                error:
+                  code: INVALID_REQUEST
+                  message: page must be a positive integer
+            multipartInvalid:
+              summary: Import — invalid multipart
+              value:
+                error:
+                  code: INVALID_REQUEST
+                  message: Invalid multipart request
+    PayloadTooLarge:
+      description: Image larger than 500 MB (HTTP 413)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+          example:
+            error:
+              code: IMAGE_TOO_LARGE
+              message: image exceeds the 500 MB limit
+    UnsupportedMediaType:
+      description: Non-image file (HTTP 415)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+          example:
+            error:
+              code: UNSUPPORTED_FILE_TYPE
+              message: Only image uploads are supported
+    InternalError:
+      description: Unexpected server error (HTTP 500)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: Internal server error
+    ServiceUnavailable:
+      description: Storage or upstream dependency unavailable (HTTP 503)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+          examples:
+            storageOffline:
+              summary: Export — storage unavailable
+              value:
+                error:
+                  code: UNAVAILABLE
+                  message: storage offline
+
+  schemas:
+    DependencyCheck:
+      type: object
+      required: [ok, latencyMs]
+      properties:
+        ok:
+          type: boolean
+          description: Whether this dependency responded successfully
+          example: true
+        latencyMs:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Round-trip time for this check in milliseconds
+          example: 42
+        error:
+          type: string
+          description: Human-readable failure reason when `ok` is false
+          example: request timed out
+
+    IntegrationHealthReport:
+      type: object
+      required: [ok, firebase, nvidiaNim, cloudinary]
+      properties:
+        ok:
+          type: boolean
+          description: True only when **firebase**, **nvidiaNim**, and **cloudinary** are all `ok`
+          example: true
+        firebase:
+          $ref: "#/components/schemas/DependencyCheck"
+        nvidiaNim:
+          $ref: "#/components/schemas/DependencyCheck"
+        cloudinary:
+          $ref: "#/components/schemas/DependencyCheck"
+
+    ImportAccepted:
+      type: object
+      description: Empty object — import was queued
+
+    ExportListResponse:
+      type: object
+      required: [data, page, limit, is_next]
+      properties:
+        data:
+          type: array
+          description: Newest-first by `createdAt`; length ≤ `limit`
+          items:
+            $ref: "#/components/schemas/ExportListItem"
+          default: []
+        page:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Echo of the resolved `page` query
+        limit:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 50
+          description: Echo of the resolved `limit` query (capped at 50)
+        is_next:
+          type: boolean
+          description: True when at least one more row exists after this page (newest-first order)
+
+    ExportListItem:
+      type: object
+      required: [createdAt]
+      properties:
+        createdAt:
+          type: integer
+          format: int64
+          description: Unix ms when the upload was created
+          example: 1745000001000
+        updatedAt:
+          type: integer
+          format: int64
+          description: Present when the pipeline finished (success or error)
+          example: 1745000001500
+        finalText:
+          type: string
+          description: Present when the pipeline completed successfully
+          example: "Rewritten answer text."
+        imageUrl:
+          type: string
+          format: uri
+          description: Present when the pipeline completed successfully
+          example: https://res.cloudinary.com/demo/image/upload/v1/grim/upl_abc.png
+        errorMessage:
+          type: string
+          description: Present when the pipeline failed
+          example: "Processing failed"
+
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable code
+              example: INVALID_REQUEST
+            message:
+              type: string
+              description: Human-readable detail
+              example: image is required

@@ -1,0 +1,45 @@
+import type { Database } from "firebase-admin/database";
+import { getDatabase } from "firebase-admin/database";
+import type { App } from "firebase-admin/app";
+import { sortByCreatedAtDesc } from "../utils/sort-by-created-at.util";
+import type { GrimUpload, GrimUploadRow } from "../../api/v1/model/import.model";
+import type { UploadRepository } from "../../api/v1/model/services.model";
+
+const UPLOADS_PATH = "uploads";
+
+export function getRealtimeDb(app: App): Database {
+  return getDatabase(app);
+}
+
+export class FirebaseUploadRepository implements UploadRepository {
+  constructor(private readonly database: Database) {}
+
+  async createPendingUpload(id: string, upload: GrimUpload): Promise<void> {
+    await this.database.ref(uploadPath(id)).set(upload);
+  }
+
+  async updateUpload(id: string, updates: Partial<GrimUpload>): Promise<void> {
+    await this.database.ref(uploadPath(id)).update(updates);
+  }
+
+  async getUpload(id: string): Promise<GrimUploadRow | null> {
+    const snapshot = await this.database.ref(uploadPath(id)).once("value");
+    const value = snapshot.val() as GrimUpload | null;
+    return value ? { ...value, id } : null;
+  }
+
+  async listUploads(limit: number): Promise<GrimUploadRow[]> {
+    const snapshot = await this.database
+      .ref(UPLOADS_PATH)
+      .orderByChild("createdAt")
+      .limitToLast(limit)
+      .once("value");
+    const raw = snapshot.val() as Record<string, GrimUpload> | null;
+    const rows = Object.entries(raw ?? {}).map(([id, upload]) => ({ ...upload, id }));
+    return sortByCreatedAtDesc(rows);
+  }
+}
+
+function uploadPath(id: string): string {
+  return `${UPLOADS_PATH}/${id}`;
+}
