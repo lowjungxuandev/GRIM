@@ -42,7 +42,7 @@ Optional:
 - `POST /api/v1/import`
   - accepts `multipart/form-data`
   - required field: `image`
-  - returns **202** with `{}` (empty JSON object)
+  - returns **200** `text/event-stream` (SSE): status events, then terminal JSON (success row or `error`)
   - on success, broadcasts FCM to topic `grim_new_result` (or `GRIM_FCM_TOPIC`) so subscribed devices can call export
 - `GET /api/v1/export`
   - optional `limit` (default 20, max 50)

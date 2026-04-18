@@ -4,36 +4,58 @@ import { ApiError } from "../../src/libs/utils/api-error.util";
 import { buildTestApp, createImportServiceWithStubbedPipeline } from "../test-utils";
 import { InMemoryUploadRepository } from "../in-memory-upload-repository";
 
+function parseSseDataLines(body: string): unknown[] {
+  return body
+    .split(/\n\n/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const line = block.startsWith("data: ") ? block.slice(6) : block;
+      return JSON.parse(line) as unknown;
+    });
+}
+
 describe("POST /api/v1/import (HTTP integration)", () => {
-  it("returns 202 with an empty JSON object for a valid image upload", async () => {
-    const acceptImport = vi.fn(async () => ({}));
-    const app = buildTestApp({ importService: { acceptImport } });
+  it("returns 200 text/event-stream and forwards emits from ImportService", async () => {
+    const streamImport = vi.fn(async (_req, emit) => {
+      emit({ status: "extracting_text" });
+      emit({ status: "analyzing_text" });
+      emit({ id: "upl_1", createdAt: 1, updatedAt: 2, finalText: "ok" });
+    });
+    const app = buildTestApp({ importService: { streamImport } });
     const res = await request(app)
       .post("/api/v1/import")
       .attach("image", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), {
         filename: "pixel.png",
         contentType: "image/png"
       })
-      .expect(202);
-    expect(res.body).toEqual({});
-    expect(acceptImport).toHaveBeenCalledTimes(1);
-    const arg = acceptImport.mock.calls[0]![0];
+      .expect(200);
+    expect(res.headers["content-type"]).toMatch(/text\/event-stream/);
+    expect(parseSseDataLines(res.text)).toEqual([
+      { status: "extracting_text" },
+      { status: "analyzing_text" },
+      { id: "upl_1", createdAt: 1, updatedAt: 2, finalText: "ok" }
+    ]);
+    expect(streamImport).toHaveBeenCalledTimes(1);
+    const arg = streamImport.mock.calls[0]![0];
     expect(arg.imageMimeType).toBe("image/png");
     expect(Buffer.isBuffer(arg.imageBuffer)).toBe(true);
   });
 
   it("accepts .jpg when the client sends application/octet-stream (infers image/jpeg)", async () => {
-    const acceptImport = vi.fn(async () => ({}));
-    const app = buildTestApp({ importService: { acceptImport } });
+    const streamImport = vi.fn(async (_req, emit) => {
+      emit({ id: "upl_mime", createdAt: 0, updatedAt: 0, finalText: "ok" });
+    });
+    const app = buildTestApp({ importService: { streamImport } });
     await request(app)
       .post("/api/v1/import")
       .attach("image", Buffer.from([0xff, 0xd8, 0xff]), {
         filename: "photo.jpg",
         contentType: "application/octet-stream"
       })
-      .expect(202);
-    expect(acceptImport).toHaveBeenCalledTimes(1);
-    const arg = acceptImport.mock.calls[0]![0];
+      .expect(200);
+    expect(streamImport).toHaveBeenCalledTimes(1);
+    const arg = streamImport.mock.calls[0]![0];
     expect(arg.imageMimeType).toBe("image/jpeg");
   });
 
@@ -41,14 +63,24 @@ describe("POST /api/v1/import (HTTP integration)", () => {
     const repo = new InMemoryUploadRepository();
     const importService = createImportServiceWithStubbedPipeline({ uploadRepository: repo });
     const app = buildTestApp({ importService });
-    await request(app)
+    const res = await request(app)
       .post("/api/v1/import")
       .attach("image", Buffer.from("fake-jpeg"), { filename: "x.jpg", contentType: "image/jpeg" })
-      .expect(202);
-    await vi.waitFor(async () => {
-      const row = await repo.getUpload("integration_upload_id");
-      expect(row).not.toBeNull();
+      .expect(200);
+
+    const events = parseSseDataLines(res.text);
+    expect(events[0]).toEqual({ status: "extracting_text" });
+    expect(events[1]).toEqual({ status: "analyzing_text" });
+    expect(events[2]).toMatchObject({
+      id: "integration_upload_id",
+      createdAt: 4242,
+      updatedAt: 4242,
+      extractedText: "extracted",
+      finalText: "final:extracted",
+      imageUrl: "https://example.test/img",
+      cloudinaryPublicId: "test_public_id"
     });
+
     const row = await repo.getUpload("integration_upload_id");
     expect(row).toMatchObject({
       id: "integration_upload_id",
@@ -77,10 +109,10 @@ describe("POST /api/v1/import (HTTP integration)", () => {
     });
   });
 
-  it("maps ApiError from acceptImport through the global error handler", async () => {
+  it("maps ApiError from streamImport through the global error handler when no bytes were sent", async () => {
     const app = buildTestApp({
       importService: {
-        acceptImport: async () => {
+        streamImport: async () => {
           throw new ApiError(409, "CONFLICT", "upload id collision");
         }
       }

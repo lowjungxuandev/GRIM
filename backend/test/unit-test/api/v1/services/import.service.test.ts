@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { ImportService } from "../../../../../src/api/v1/services/import.service";
 import { InMemoryUploadRepository } from "../../../../in-memory-upload-repository";
+import { ApiError } from "../../../../../src/libs/utils/api-error.util";
 
 describe("ImportService", () => {
-  it("returns empty body immediately, then completes storage → extract → rewrite → RTDB → notifier", async () => {
+  it("emits status phases then success row after storage → extract → rewrite → RTDB → notifier", async () => {
     const uploadRepository = new InMemoryUploadRepository();
     const textExtractor = { extractTextFromImage: vi.fn(async () => "extracted") };
     const finalTextBuilder = { buildFinalText: vi.fn(async (t: string) => `final:${t}`) };
@@ -15,6 +16,7 @@ describe("ImportService", () => {
     };
     const notifier = { broadcastNewResult: vi.fn(async () => {}) };
     const logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn() };
+    const emit = vi.fn();
 
     const service = new ImportService({
       uploadRepository,
@@ -27,16 +29,24 @@ describe("ImportService", () => {
       generateUploadId: () => "upl_testid"
     });
 
-    const res = await service.acceptImport({
-      imageBuffer: Buffer.from("img"),
-      imageMimeType: "image/png"
-    });
-    expect(res).toEqual({});
+    await service.streamImport(
+      { imageBuffer: Buffer.from("img"), imageMimeType: "image/png" },
+      emit
+    );
 
-    await vi.waitFor(async () => {
-      const row = await uploadRepository.getUpload("upl_testid");
-      expect(row?.finalText).toBe("final:extracted");
-    });
+    expect(emit.mock.calls.map((c) => c[0])).toEqual([
+      { status: "extracting_text" },
+      { status: "analyzing_text" },
+      {
+        id: "upl_testid",
+        createdAt: 99,
+        updatedAt: 99,
+        extractedText: "extracted",
+        finalText: "final:extracted",
+        imageUrl: "https://img",
+        cloudinaryPublicId: "pid"
+      }
+    ]);
 
     expect(imageStorage.uploadImage).toHaveBeenCalledBefore(textExtractor.extractTextFromImage);
     expect(textExtractor.extractTextFromImage).toHaveBeenCalledWith(Buffer.from("img"), "image/png");
@@ -53,7 +63,7 @@ describe("ImportService", () => {
     expect(done?.updatedAt).toBe(99);
   });
 
-  it("persists failure when the pipeline throws", async () => {
+  it("persists failure and emits error when the pipeline throws", async () => {
     const uploadRepository = new InMemoryUploadRepository();
     const textExtractor = {
       extractTextFromImage: vi.fn(async () => {
@@ -61,27 +71,53 @@ describe("ImportService", () => {
       })
     };
     const logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn() };
+    const emit = vi.fn();
 
     const service = new ImportService({
       uploadRepository,
       textExtractor,
       finalTextBuilder: { buildFinalText: vi.fn(async () => "") },
-      imageStorage: { uploadImage: vi.fn() },
+      imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", cloudinaryPublicId: "p" })) },
       notifier: { broadcastNewResult: vi.fn() },
       logger,
       now: () => 7,
       generateUploadId: () => "upl_fail"
     });
 
-    await service.acceptImport({ imageBuffer: Buffer.from("x"), imageMimeType: "image/jpeg" });
+    await service.streamImport({ imageBuffer: Buffer.from("x"), imageMimeType: "image/jpeg" }, emit);
 
-    await vi.waitFor(async () => {
-      const row = await uploadRepository.getUpload("upl_fail");
-      expect(row?.errorMessage).toBe("vision failed");
-    });
+    expect(emit.mock.calls.map((c) => c[0])).toEqual([
+      { status: "extracting_text" },
+      { error: { code: "INTERNAL_ERROR", message: "vision failed" } }
+    ]);
 
     const row = await uploadRepository.getUpload("upl_fail");
+    expect(row?.errorMessage).toBe("vision failed");
     expect(row?.updatedAt).toBe(7);
     expect(logger.error).toHaveBeenCalled();
+  });
+
+  it("emits ApiError code when pipeline throws ApiError", async () => {
+    const uploadRepository = new InMemoryUploadRepository();
+    const emit = vi.fn();
+    const service = new ImportService({
+      uploadRepository,
+      textExtractor: {
+        extractTextFromImage: vi.fn(async () => {
+          throw new ApiError(503, "UPSTREAM", "nim down");
+        })
+      },
+      finalTextBuilder: { buildFinalText: vi.fn() },
+      imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", cloudinaryPublicId: "p" })) },
+      notifier: { broadcastNewResult: vi.fn() },
+      logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
+      generateUploadId: () => "upl_api"
+    });
+
+    await service.streamImport({ imageBuffer: Buffer.from("x"), imageMimeType: "image/png" }, emit);
+
+    expect(emit).toHaveBeenLastCalledWith({
+      error: { code: "UPSTREAM", message: "nim down" }
+    });
   });
 });

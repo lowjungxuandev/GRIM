@@ -1,9 +1,4 @@
-import type {
-  GrimUpload,
-  GrimUploadRow,
-  ImportAcceptedResponse,
-  ImportRequest
-} from "./import.model";
+import type { GrimUpload, GrimUploadRow, ImportRequest, ImportStreamSseData } from "./import.model";
 
 export type UploadedImage = {
   imageUrl: string;
@@ -46,6 +41,8 @@ export type ImportServiceDependencies = {
   generateUploadId?: () => string;
 };
 
+export type ImportStreamEmitter = (data: ImportStreamSseData) => void;
+
 export interface ImportService {
-  acceptImport(request: ImportRequest): Promise<ImportAcceptedResponse>;
+  streamImport(request: ImportRequest, emit: ImportStreamEmitter): Promise<void>;
 }

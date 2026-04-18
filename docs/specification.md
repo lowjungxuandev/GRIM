@@ -13,7 +13,7 @@ Integration checks (Firebase Realtime Database, NVIDIA NIM, Cloudinary). Returns
 ## `POST /api/v1/import`
 
 - `multipart/form-data`, required field **`image`**
-- **202** with **`{}`** as soon as the job is accepted (processing continues asynchronously)
+- **200** with **`Content-Type: text/event-stream`** — Server-Sent Events until the pipeline finishes. Each `data:` line is JSON: first `{"status":"extracting_text"}`, then `{"status":"analyzing_text"}`, then either the success row (`id`, `createdAt`, `updatedAt`, `extractedText`, `finalText`, `imageUrl`, `cloudinaryPublicId`) or a terminal `{"error":{"code","message"}}`.
 - Pipeline order on the server: **Cloudinary** (image) → **Gemma** (extract) → **Step** (final text) → **Realtime Database** (one write under `uploads/{id}`) → **FCM** topic broadcast only after a successful DB write
 - FCM defaults to topic name `grim_new_result` (override with server env `GRIM_FCM_TOPIC` — see `backend/src/libs/configs/env.config.ts` and `backend/src/libs/firebase/fcm.ts`)
 

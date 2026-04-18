@@ -10,7 +10,17 @@ export type GrimUpload = {
 
 export type GrimUploadRow = GrimUpload & { id: string };
 
-export type ImportAcceptedResponse = Record<string, never>;
+/** SSE `data:` JSON for progress (after Cloudinary, before / between model calls). */
+export type ImportStreamStatusBody = {
+  status: "extracting_text" | "analyzing_text";
+};
+
+export type ImportStreamErrorBody = {
+  error: { code: string; message: string };
+};
+
+/** Payloads written as SSE `data:` lines for `POST /api/v1/import`. */
+export type ImportStreamSseData = ImportStreamStatusBody | GrimUploadRow | ImportStreamErrorBody;
 
 export type ImportRequest = {
   imageBuffer: Buffer;

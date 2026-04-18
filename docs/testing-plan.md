@@ -8,17 +8,9 @@ Endpoints to test:
 
 ## Main rule
 
-`POST /api/v1/import` must return quickly after the backend accepts the job.
+`POST /api/v1/import` returns **200** with **`text/event-stream`**. The response body is Server-Sent Events: synthetic status lines (`extracting_text`, `analyzing_text`), then a terminal JSON object (success row or `error`).
 
-It must not wait for:
-
-- Gemma
-- Step
-- Cloudinary
-- Realtime Database
-- FCM
-
-That long work should continue in the background.
+The handler must wait for **Cloudinary**, **Gemma**, **Step**, **Realtime Database**, and (on success) **FCM** as part of that same request (stream ends after those steps).
 
 ## Unit tests
 
@@ -29,20 +21,20 @@ That long work should continue in the background.
 - Realtime DB read and write helpers
 - FCM topic broadcast (`broadcastNewResult`) is invoked after a successful pipeline
 - pipeline completion persists `finalText` / `imageUrl` on success and error detail on failure
+- import stream emits status events in order and a terminal success or error payload
 
 ## Integration tests
 
 - `GET /health` returns **200** with the integration report body
-- `POST /api/v1/import` returns **202** immediately
-- slow mocked AI providers do not delay the import response
+- `POST /api/v1/import` returns **200** `text/event-stream` with the expected SSE `data:` sequence when the pipeline is stubbed
 - `GET /api/v1/export` returns `data` ordered newest-first with pagination metadata
 - after a successful mocked pipeline, export includes `finalText` and `imageUrl` on the matching row
 - after a failing mocked pipeline, export includes `errorMessage` on the matching row
 
 ## E2E tests
 
-- import image → response is immediate → export later includes `finalText` and `imageUrl`
-- import image → provider failure → export later includes `errorMessage`
+- import image → SSE stream completes → terminal payload includes `finalText` and `imageUrl` → export includes the same row
+- import image → provider failure → SSE terminal `error` and export includes `errorMessage` on the matching row
 - import image → after a successful pipeline, FCM topic broadcast runs → export still returns the canonical list from the HTTP API
 
 ## Tooling

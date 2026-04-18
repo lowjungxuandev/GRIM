@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import type {
   ImportService as ImportServiceContract,
   ImportServiceDependencies,
+  ImportStreamEmitter,
   Logger
 } from "../model/services.model";
-import type { GrimUpload, ImportAcceptedResponse, ImportRequest } from "../model/import.model";
+import type { GrimUpload, ImportRequest } from "../model/import.model";
+import { ApiError } from "../../../libs/utils/api-error.util";
 
 export class ImportService implements ImportServiceContract {
   private readonly logger: Logger;
@@ -17,33 +19,29 @@ export class ImportService implements ImportServiceContract {
     this.newId = deps.generateUploadId ?? (() => `upl_${randomUUID().replace(/-/g, "")}`);
   }
 
-  async acceptImport(request: ImportRequest): Promise<ImportAcceptedResponse> {
-    void this.runImportPipeline(request).catch((error) => {
-      this.logger.error("import pipeline exited unexpectedly", error);
-    });
-    return {};
-  }
-
   /**
-   * Order: image storage → text extraction → final text → Realtime Database (single write) → FCM hint.
-   * Does not write to the database until those steps succeed or fails with one error-shaped write.
+   * Order: image storage → SSE extracting_text → Gemma → SSE analyzing_text → Step →
+   * Realtime Database (single write) → FCM hint → SSE final row (or SSE error after RTDB error write).
    */
-  private async runImportPipeline(request: ImportRequest): Promise<void> {
+  async streamImport(request: ImportRequest, emit: ImportStreamEmitter): Promise<void> {
     const { uploadRepository, textExtractor, finalTextBuilder, imageStorage, notifier } = this.deps;
     const uploadId = this.newId();
     const createdAt = this.now();
 
     try {
       const image = await imageStorage.uploadImage(request.imageBuffer, uploadId);
+      emit({ status: "extracting_text" });
       const extractedText = await textExtractor.extractTextFromImage(
         request.imageBuffer,
         request.imageMimeType
       );
+      emit({ status: "analyzing_text" });
       const finalText = await finalTextBuilder.buildFinalText(extractedText);
+      const updatedAt = this.now();
 
       await uploadRepository.createPendingUpload(uploadId, {
         createdAt,
-        updatedAt: this.now(),
+        updatedAt,
         extractedText,
         finalText,
         imageUrl: image.imageUrl,
@@ -55,6 +53,16 @@ export class ImportService implements ImportServiceContract {
       } catch (error) {
         this.logger.error("failed to send FCM topic broadcast", error);
       }
+
+      emit({
+        id: uploadId,
+        createdAt,
+        updatedAt,
+        extractedText,
+        finalText,
+        imageUrl: image.imageUrl,
+        cloudinaryPublicId: image.cloudinaryPublicId
+      });
     } catch (error) {
       try {
         await uploadRepository.createPendingUpload(uploadId, {
@@ -70,6 +78,18 @@ export class ImportService implements ImportServiceContract {
       }
 
       this.logger.error("import pipeline failed", error);
+      const { code, message } = this.toStreamError(error);
+      emit({ error: { code, message } });
     }
+  }
+
+  private toStreamError(error: unknown): { code: string; message: string } {
+    if (error instanceof ApiError) {
+      return { code: error.code, message: error.message };
+    }
+    if (error instanceof Error && error.message.trim()) {
+      return { code: "INTERNAL_ERROR", message: error.message.trim().slice(0, 200) };
+    }
+    return { code: "INTERNAL_ERROR", message: "Internal server error" };
   }
 }

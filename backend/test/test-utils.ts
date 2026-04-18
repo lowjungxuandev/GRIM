@@ -37,7 +37,9 @@ export type BuildTestAppInput = {
 };
 
 const noopImportService: ImportService = {
-  acceptImport: async () => ({})
+  streamImport: async (_request, emit) => {
+    emit({ error: { code: "INTERNAL_ERROR", message: "Import not configured in this test shell" } });
+  }
 };
 
 export function buildTestApp(input: BuildTestAppInput = {}) {

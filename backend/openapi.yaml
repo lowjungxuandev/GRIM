@@ -4,6 +4,8 @@ info:
   description: |
     HTTP API for image **import**, **export**, and integration **health** checks.
 
+    **`POST /api/v1/import`** returns **Server-Sent Events** (`text/event-stream`): JSON on each `data:` line (progress, then a terminal success row or `error` object). See that operation for the exact sequence.
+
     **Interactive docs:** with the backend running, open **`/docs`** on the same origin for embedded [Scalar API Reference](https://scalar.com/products/api-references), or import this file’s URL elsewhere.
   version: 0.1.0
 
@@ -15,7 +17,7 @@ tags:
   - name: health
     description: Firebase, NVIDIA NIM, and Cloudinary readiness
   - name: import
-    description: Multipart image upload; processing continues in the background
+    description: Multipart image upload; response is Server-Sent Events until the pipeline finishes
   - name: export
     description: Paginated newest-first list from Realtime Database (`page`, `limit`, `is_next`)
 
@@ -79,7 +81,7 @@ paths:
   /api/v1/import:
     post:
       tags: [import]
-      summary: Import image
+      summary: Import image (SSE stream)
       description: |
         **Content-Type:** `multipart/form-data`
 
@@ -89,7 +91,16 @@ paths:
 
         When the pipeline **succeeds**, the server sends an FCM **topic** data message (`kind: new_result`) so subscribed devices can refresh from `GET /api/v1/export`. Topic defaults to **`grim_new_result`** (override with env `GRIM_FCM_TOPIC`). No FCM send on pipeline failure.
 
-        **Response:** **202** with an empty JSON object `{}` as soon as the upload is accepted. Processing continues asynchronously: **Cloudinary** (image) → **Gemma** (extract) → **Step** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then FCM topic on success.
+        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **Gemma** (extract) → **Step** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then FCM topic on success.
+
+        Each SSE message is one `data:` line whose value is a single JSON object:
+
+        1. `{"status":"extracting_text"}` — after Cloudinary, before Gemma (server-authored status, not a raw upstream token stream).
+        2. `{"status":"analyzing_text"}` — after extraction, before Step.
+        3. On success: a JSON object with `id`, `createdAt`, `updatedAt`, `extractedText`, `finalText`, `imageUrl`, and `cloudinaryPublicId` (same shape as stored under `uploads/{id}`).
+        4. On failure: `{"error":{"code":"…","message":"…"}}` (same `code` / `message` style as `ErrorBody` elsewhere). If **image storage** fails before any `status` event, the stream may contain **only** this terminal `data:` line. If the stream has already started, this appears as the last `data:` line instead of a separate HTTP error body.
+
+        **HTTP 500** with a normal JSON `ErrorBody` is used only when the request fails **before** any SSE bytes are sent (for example an internal error in the handler). Once `text/event-stream` has started, failures use the terminal SSE `data:` object above.
       operationId: postImport
       requestBody:
         required: true
@@ -111,16 +122,52 @@ paths:
                 summary: Image only
                 value: {}
       responses:
-        "202":
-          description: Import accepted; pipeline runs in the background
-          content:
-            application/json:
+        "200":
+          description: |
+            SSE stream. Each event is one `data:` line containing JSON (`ImportStreamSseData` — status, success row, or terminal error).
+          headers:
+            Cache-Control:
+              description: Clients must not cache the live stream as a static document.
               schema:
-                $ref: "#/components/schemas/ImportAccepted"
+                type: string
+                example: no-cache
+            Connection:
+              description: Keep the TCP connection open for the duration of the stream.
+              schema:
+                type: string
+                example: keep-alive
+            X-Accel-Buffering:
+              description: Hint for nginx to disable response buffering so chunks flush promptly.
+              schema:
+                type: string
+                example: "no"
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  UTF-8 **Server-Sent Events** body (`text/event-stream`). Split on blank lines (`\n\n`); each block whose lines start with `data:` carries one JSON value per line. In practice each event uses a single `data:` line whose JSON matches **`ImportStreamSseData`** (see components).
               examples:
-                accepted:
-                  summary: Typical 202 body
-                  value: {}
+                success:
+                  summary: Typical success sequence (line breaks as in SSE)
+                  value: |
+                    data: {"status":"extracting_text"}
+
+                    data: {"status":"analyzing_text"}
+
+                    data: {"id":"upl_abc","createdAt":1745000001000,"updatedAt":1745000001500,"extractedText":"…","finalText":"…","imageUrl":"https://res.cloudinary.com/demo/image/upload/v1/grim/upl_abc.png","cloudinaryPublicId":"grim/upl_abc"}
+
+                pipelineError:
+                  summary: Terminal error after stream started
+                  value: |
+                    data: {"status":"extracting_text"}
+
+                    data: {"error":{"code":"INTERNAL_ERROR","message":"vision failed"}}
+
+                earlyFailure:
+                  summary: Storage failed before any status line (optional)
+                  value: |
+                    data: {"error":{"code":"INTERNAL_ERROR","message":"upload failed"}}
         "400":
           $ref: "#/components/responses/BadRequest"
         "413":
@@ -314,9 +361,60 @@ components:
         cloudinary:
           $ref: "#/components/schemas/DependencyCheck"
 
-    ImportAccepted:
+    ImportStreamStatus:
       type: object
-      description: Empty object — import was queued
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [extracting_text, analyzing_text]
+
+    ImportStreamResult:
+      type: object
+      required: [id, createdAt, updatedAt]
+      description: Success terminal event; mirrors the Realtime Database row under `uploads/{id}`.
+      properties:
+        id:
+          type: string
+          example: upl_8741170b50a14381a696e87f07dca6b5
+        createdAt:
+          type: integer
+          format: int64
+        updatedAt:
+          type: integer
+          format: int64
+        extractedText:
+          type: string
+        finalText:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+        cloudinaryPublicId:
+          type: string
+
+    ImportStreamTerminalError:
+      type: object
+      required: [error]
+      description: Terminal SSE payload on pipeline failure (same `error.code` / `error.message` shape as `ErrorBody`).
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable code (aligned with `ErrorBody.error.code`)
+            message:
+              type: string
+              description: Human-readable detail (aligned with `ErrorBody.error.message`)
+
+    ImportStreamSseData:
+      oneOf:
+        - $ref: "#/components/schemas/ImportStreamStatus"
+        - $ref: "#/components/schemas/ImportStreamResult"
+        - $ref: "#/components/schemas/ImportStreamTerminalError"
+      description: JSON payload carried in one SSE `data:` line for `POST /api/v1/import`.
 
     ExportListResponse:
       type: object
