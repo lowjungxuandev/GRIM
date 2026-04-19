@@ -20,7 +20,7 @@ export class ImportService implements ImportServiceContract {
   }
 
   /**
-   * Order: image storage → SSE extracting_text → Mistral Large (vision, streamed) → SSE analyzing_text → Step →
+   * Order: image storage → SSE extracting_text → image text extraction → SSE analyzing_text → Step →
    * Realtime Database (single write) → FCM hint → SSE final row (or SSE error after RTDB error write).
    */
   async streamImport(request: ImportRequest, emit: ImportStreamEmitter): Promise<void> {

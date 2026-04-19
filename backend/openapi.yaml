@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Grim API
   description: |
-    HTTP API for Grim’s backend: integration **health**, image **import** (LLM pipeline over SSE), paginated **export**, and **prompt** templates for the NVIDIA Mistral Large (extract) + Step stages.
+    HTTP API for Grim’s backend: integration **health**, image **import** (LLM pipeline over SSE), paginated **export**, and **prompt** templates for the extract + Step stages.
 
     | Area | Base path |
     |------|-----------|
@@ -29,12 +29,12 @@ tags:
     description: |
       Multipart image upload (`multipart/form-data`); the file part must be named **`image`**.
       Response is Server-Sent Events until the pipeline finishes.
-      Mistral extract and Step instructions come from the **prompts** templates (`extract_text_prompt.txt`, `analyzing_text_prompt.txt`) unless changed at runtime via **`PUT /api/v1/prompts`**.
+      Extract and Step instructions come from the **prompts** templates (`extract_text_prompt.txt`, `analyzing_text_prompt.txt`) unless changed at runtime via **`PUT /api/v1/prompts`**.
   - name: export
     description: Paginated newest-first list from Realtime Database (`page`, `limit`, `is_next`)
   - name: prompts
     description: |
-      Read or replace the full prompt strings used by **`POST /api/v1/import`**: Mistral vision (**`extractTextPrompt`**, user message before the image) and Step (**`analyzingTextPrompt`**, system message; extracted text is the user message).
+      Read or replace the full prompt strings used by **`POST /api/v1/import`**: extract stage (**`extractTextPrompt`**, instructions before the image) and Step (**`analyzingTextPrompt`**, system message; extracted text is the user message).
       Files on disk: **`extract_text_prompt.txt`**, **`analyzing_text_prompt.txt`** under **`GRIM_PROMPTS_DIR`**. Request body for **PUT** is JSON (server **`express.json` limit 2 MB**).
 
 paths:
@@ -115,13 +115,13 @@ paths:
 
         When the pipeline **succeeds**, the server sends an FCM **topic** data message (`kind: new_result`) so subscribed devices can refresh from `GET /api/v1/export`. Topic defaults to **`grim_new_result`** (override with env `GRIM_FCM_TOPIC`). No FCM send on pipeline failure.
 
-        **LLM prompts (configurable):** Mistral Large receives a **user** message = current **`extractTextPrompt`** + a line break + a data-URL **`<img … />`** for the upload (upstream **`stream: true`** with **`Accept: text/event-stream`**; the app aggregates token deltas into one string). Step receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. Defaults ask for structured JSON (questions/options/type, then answers); **`extractedText`** and **`finalText`** in the success row are **opaque strings** returned by the models (often JSON). Change prompts with **`GET/PUT /api/v1/prompts`**.
+        **LLM prompts (configurable):** the extract stage uses current **`extractTextPrompt`** with the uploaded image. Step receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. Defaults ask for structured JSON (questions/options/type, then answers); **`extractedText`** and **`finalText`** in the success row are **opaque strings** returned by the models (often JSON). Change prompts with **`GET/PUT /api/v1/prompts`**.
 
-        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **Mistral Large** (vision extract) → **Step** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then FCM topic on success.
+        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **OpenAI GPT-4o** (image text extraction) → **Step** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then FCM topic on success.
 
         Each SSE message is one `data:` line whose value is a single JSON object:
 
-        1. `{"status":"extracting_text"}` — after Cloudinary, before Mistral extract (server-authored status, not the raw upstream NVIDIA token stream).
+        1. `{"status":"extracting_text"}` — after Cloudinary, before image text extraction.
         2. `{"status":"analyzing_text"}` — after extraction, before Step.
         3. On success: a JSON object with `id`, `createdAt`, `updatedAt`, `extractedText`, `finalText`, `imageUrl`, and `cloudinaryPublicId` (same shape as stored under `uploads/{id}`).
         4. On failure: `{"error":{"code":"…","message":"…"}}` (same `code` / `message` style as `ErrorBody` elsewhere). If **image storage** fails before any `status` event, the stream may contain **only** this terminal `data:` line. If the stream has already started, this appears as the last `data:` line instead of a separate HTTP error body.
@@ -204,7 +204,7 @@ paths:
       tags: [prompts]
       summary: Get LLM prompt templates
       description: |
-        Returns the current **`extractTextPrompt`** (Mistral vision user instructions) and **`analyzingTextPrompt`** (Step system instructions).
+        Returns the current **`extractTextPrompt`** (extract stage instructions) and **`analyzingTextPrompt`** (Step system instructions).
 
         When the server sets env **`GRIM_PROMPT_ADMIN_SECRET`**, clients must send header **`X-Grim-Prompt-Secret`** with that exact value or the call returns **401**.
       operationId: getPrompts
@@ -258,7 +258,7 @@ paths:
               properties:
                 extract_text:
                   type: string
-                  description: Mistral extract prompt — UTF-8 `.txt` upload (`text/*` / `application/octet-stream`) or plain text field
+                  description: Extract prompt — UTF-8 `.txt` upload (`text/*` / `application/octet-stream`) or plain text field
                   format: binary
                 analyzing_text:
                   type: string
@@ -274,7 +274,7 @@ paths:
                   extractTextPrompt: "…"
                   analyzingTextPrompt: "…"
               extractOnly:
-                summary: Replace extract (Mistral) instructions only (JSON)
+                summary: Replace extract instructions only (JSON)
                 value:
                   extractTextPrompt: "…"
       responses:
@@ -647,7 +647,7 @@ components:
       properties:
         extractTextPrompt:
           type: string
-          description: Full user-side instructions for Mistral vision extract (JSON extraction rules + how to read the monitor).
+          description: Full instructions for the image text extraction stage (JSON extraction rules + how to read the monitor).
         analyzingTextPrompt:
           type: string
           description: Full system instructions for Step (answer derivation + JSON shape including `answer`).

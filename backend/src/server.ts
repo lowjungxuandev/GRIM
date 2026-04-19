@@ -11,8 +11,8 @@ import { DEFAULT_FCM_BROADCAST_TOPIC, FirebaseNotifier } from "./libs/firebase/f
 import { getFirebaseAdminApp } from "./libs/firebase/admin";
 import { FirebaseUploadRepository, getRealtimeDb } from "./libs/firebase/realtime";
 import { GrimPromptSettings } from "./libs/utils/prompt.util";
-import { NvidiaMistralLargeTextExtractor } from "./libs/nvidia/mistral-large-3-675b-instruct";
 import { NvidiaStepFinalTextBuilder } from "./libs/nvidia/step-3.5-flash";
+import { OpenAIGpt4oImageTextExtractor } from "./libs/openai/gpt-4o-image-text-extractor";
 
 function createProductionDependencies(env: ServerEnv): AppDependencies {
   const promptsDir = env.GRIM_PROMPTS_DIR ?? path.join(process.cwd(), "prompts");
@@ -23,7 +23,9 @@ function createProductionDependencies(env: ServerEnv): AppDependencies {
   const exportService = new ExportService(uploadRepository);
   const importService = new ImportService({
     uploadRepository,
-    textExtractor: new NvidiaMistralLargeTextExtractor(env.NVAPI_KEY, () => promptSettings.getExtractTextPrompt()),
+    textExtractor: new OpenAIGpt4oImageTextExtractor(env.OPENAI_API_KEY, () =>
+      promptSettings.getExtractTextPrompt()
+    ),
     finalTextBuilder: new NvidiaStepFinalTextBuilder(env.NVAPI_KEY, () => promptSettings.getAnalyzingTextPrompt()),
     imageStorage: new CloudinaryImageStore(),
     notifier: new FirebaseNotifier(firebaseApp, env.GRIM_FCM_TOPIC ?? DEFAULT_FCM_BROADCAST_TOPIC),

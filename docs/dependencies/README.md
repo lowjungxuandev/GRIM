@@ -5,8 +5,8 @@ Implementation-oriented documentation for **external products and SDKs** used by
 | Topic | Document |
 |--------|----------|
 | Cloudinary | [cloudinary-implementation.md](./cloudinary-implementation.md) |
-| NVIDIA Mistral Large (vision extract, streamed) | [mistral-large-3-675b-instruct-implementation.md](./mistral-large-3-675b-instruct-implementation.md) |
 | NVIDIA Step (final text) | [step-3.5-flash-implementation.md](./step-3.5-flash-implementation.md) |
+| OpenAI API | [openai-api-implementation.md](./openai-api-implementation.md) |
 | Scalar (API Reference UI) | [scalar-implementation.md](./scalar-implementation.md) |
 | Firebase (CLI, Admin, RTDB, FCM, FlutterFire) | [firebase/README.md](./firebase/README.md) (see folder) |
 

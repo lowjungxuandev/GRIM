@@ -4,6 +4,7 @@ export type ServerEnv = {
   GOOGLE_APPLICATION_CREDENTIALS: string;
   FIREBASE_PROJECT_ID: string;
   FIREBASE_DATABASE_URL: string;
+  OPENAI_API_KEY: string;
   NVAPI_KEY: string;
   /** Optional URL of a Scalar-hosted API Reference; local spec is always `GET /openapi.yaml`. */
   SCALAR_DOCS_URL?: string;
@@ -30,6 +31,7 @@ export function loadServerEnv(): ServerEnv {
     GOOGLE_APPLICATION_CREDENTIALS: readRequiredEnv("GOOGLE_APPLICATION_CREDENTIALS"),
     FIREBASE_PROJECT_ID: readRequiredEnv("FIREBASE_PROJECT_ID"),
     FIREBASE_DATABASE_URL: readRequiredEnv("FIREBASE_DATABASE_URL"),
+    OPENAI_API_KEY: readRequiredEnv("OPENAI_API_KEY"),
     NVAPI_KEY: readRequiredEnv("NVAPI_KEY"),
     SCALAR_DOCS_URL: readOptionalEnv("SCALAR_DOCS_URL"),
     GRIM_FCM_TOPIC: readOptionalEnv("GRIM_FCM_TOPIC"),

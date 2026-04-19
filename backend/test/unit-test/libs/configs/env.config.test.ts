@@ -6,6 +6,7 @@ const required = {
   GOOGLE_APPLICATION_CREDENTIALS: "/path/cred.json",
   FIREBASE_PROJECT_ID: "proj",
   FIREBASE_DATABASE_URL: "https://proj.firebaseio.com",
+  OPENAI_API_KEY: "openai-key",
   NVAPI_KEY: "nv-key"
 } as const;
 

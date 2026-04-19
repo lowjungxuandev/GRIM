@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadServerEnv } from "../../../../src/libs/configs/env.config";
 import {
-  extractDeltaFromSseEventLine,
   NVIDIA_INTEGRATE_CHAT_URL,
   normalizeAssistantContent,
   parseChatCompletionContent,
@@ -47,30 +46,6 @@ describe("normalizeAssistantContent", () => {
   it("returns empty string for unsupported shapes", () => {
     expect(normalizeAssistantContent(null)).toBe("");
     expect(normalizeAssistantContent(12)).toBe("");
-  });
-});
-
-describe("extractDeltaFromSseEventLine", () => {
-  it("returns delta content from a data JSON line", () => {
-    expect(
-      extractDeltaFromSseEventLine(
-        'data: {"choices":[{"index":0,"delta":{"content":"hello"}}]}'
-      )
-    ).toBe("hello");
-  });
-
-  it("ignores [DONE], comments, and non-data lines", () => {
-    expect(extractDeltaFromSseEventLine("data: [DONE]")).toBe("");
-    expect(extractDeltaFromSseEventLine(": ping")).toBe("");
-    expect(extractDeltaFromSseEventLine("")).toBe("");
-  });
-
-  it("concatenates across typical stream chunks when lines are split manually", () => {
-    const lines = [
-      'data: {"choices":[{"delta":{"content":"a"}}]}',
-      'data: {"choices":[{"delta":{"content":"b"}}]}'
-    ];
-    expect(lines.map(extractDeltaFromSseEventLine).join("")).toBe("ab");
   });
 });
 

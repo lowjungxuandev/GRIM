@@ -14,7 +14,7 @@ Integration checks (Firebase Realtime Database, NVIDIA NIM, Cloudinary). Returns
 
 - `multipart/form-data`, required field **`image`**
 - **200** with **`Content-Type: text/event-stream`** — Server-Sent Events until the pipeline finishes. Each `data:` line is JSON: first `{"status":"extracting_text"}`, then `{"status":"analyzing_text"}`, then either the success row (`id`, `createdAt`, `updatedAt`, `extractedText`, `finalText`, `imageUrl`, `cloudinaryPublicId`) or a terminal `{"error":{"code","message"}}`.
-- Pipeline order on the server: **Cloudinary** (image) → **Mistral Large** (vision extract, streamed upstream) → **Step** (final text) → **Realtime Database** (one write under `uploads/{id}`) → **FCM** topic broadcast only after a successful DB write
+- Pipeline order on the server: **Cloudinary** (image) → **OpenAI GPT-4o** (image text extraction) → **Step** (final text) → **Realtime Database** (one write under `uploads/{id}`) → **FCM** topic broadcast only after a successful DB write
 - FCM defaults to topic name `grim_new_result` (override with server env `GRIM_FCM_TOPIC` — see `backend/src/libs/configs/env.config.ts` and `backend/src/libs/firebase/fcm.ts`)
 
 Typical errors: **400**, **413**, **415**, **500** — codes and messages match OpenAPI `ErrorBody` examples.

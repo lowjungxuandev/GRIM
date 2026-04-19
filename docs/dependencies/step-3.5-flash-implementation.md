@@ -18,9 +18,9 @@ The backend calls this model from **`NvidiaStepFinalTextBuilder`** in `backend/s
 
 ## Role
 
-Runs after the Mistral vision extract stage has produced extracted text: rewrite / normalize into the final user-facing string.
+Runs after the image text extraction stage has produced extracted text: rewrite / normalize into the final user-facing string.
 
 ## Notes
 
 - Request uses `stream: false`.
-- Response parsing uses `parseStepFinalText` (alias of `parseChatCompletionContent`) and `normalizeAssistantContent` in `backend/src/libs/nvidia/api.client.ts`. The vision stage consumes **SSE** via `postNvidiaChatCompletionStream` instead of a single JSON `choices[0].message`.
+- Response parsing uses `parseStepFinalText` (alias of `parseChatCompletionContent`) and `normalizeAssistantContent` in `backend/src/libs/nvidia/api.client.ts`.

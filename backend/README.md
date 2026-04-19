@@ -19,7 +19,7 @@ Server runs on `PORT` (default `3001`).
 npm test
 ```
 
-Vitest loads **`backend/.env` first** (`test/setup-env.ts`). **Configure `.env` before you run tests** (same steps as [Setup](#setup): copy `.env.example` to `.env` and fill every required value). Several suites exercise Cloudinary, Firebase Admin (Realtime Database and FCM topic messaging), and the NVIDIA Integrate API against your real credentials; without a complete `.env`, those tests will fail with authentication or network errors from the vendors. **Library integration tests** under **`test/unit-test/libs/`** do not mock storage or the database—they create real rows/uploads and **must delete that test data** (see **`docs/code-rules/unit-test-rules.md`**).
+Vitest loads **`backend/.env` first** (`test/setup-env.ts`). **Configure `.env` before you run tests** (same steps as [Setup](#setup): copy `.env.example` to `.env` and fill every required value). Several suites exercise Cloudinary, Firebase Admin (Realtime Database and FCM topic messaging), OpenAI, and the NVIDIA Integrate API against your real credentials; without a complete `.env`, those tests will fail with authentication or network errors from the vendors. **Library integration tests** under **`test/unit-test/libs/`** do not mock storage or the database—they create real rows/uploads and **must delete that test data** (see **`docs/code-rules/unit-test-rules.md`**).
 
 Required environment variables:
 
@@ -27,6 +27,7 @@ Required environment variables:
 - `GOOGLE_APPLICATION_CREDENTIALS`
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_DATABASE_URL`
+- `OPENAI_API_KEY`
 - `NVAPI_KEY`
 
 Optional:
@@ -48,7 +49,7 @@ Optional:
 - `GET /api/v1/export`
   - optional `page` (default 1), optional `limit` (default 20, max 50)
   - returns `200` paginated JSON (`data`, `page`, `limit`, `is_next`); newest first by `createdAt`; completed rows add `finalText`, `imageUrl`, `updatedAt`; failed rows add `errorMessage`, `updatedAt`
-- `GET /api/v1/prompts`, `PUT /api/v1/prompts` — read or overwrite Mistral (extract) / Step prompt templates (`backend/prompts/*.txt` by default; optional `GRIM_PROMPTS_DIR`, `GRIM_PROMPT_ADMIN_SECRET`). **PUT** accepts **`multipart/form-data`** with file or text fields **`extract_text`** and **`analyzing_text`**, or **`application/json`** with **`extractTextPrompt`** / **`analyzingTextPrompt`**.
+- `GET /api/v1/prompts`, `PUT /api/v1/prompts` — read or overwrite extract / Step prompt templates (`backend/prompts/*.txt` by default; optional `GRIM_PROMPTS_DIR`, `GRIM_PROMPT_ADMIN_SECRET`). **PUT** accepts **`multipart/form-data`** with file or text fields **`extract_text`** and **`analyzing_text`**, or **`application/json`** with **`extractTextPrompt`** / **`analyzingTextPrompt`**.
 
 ### Docs
 
@@ -57,4 +58,5 @@ Reference docs used to design the current implementation and future follow-up wo
 - **`docs/dependencies/`** — vendor integration notes (Cloudinary, NVIDIA, Scalar, Firebase); start at [`docs/dependencies/README.md`](../docs/dependencies/README.md).
 - Repository **`docs/`** (top level): `workflow.md` (target end-to-end backend flow), `specification.md`, `testing-plan.md`, plus `code-rules/`, `instructions/`, `design/`.
 
-The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, NVIDIA Mistral Large (streamed vision extract), and NVIDIA Step into **`backend/src/`**. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
+The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, and NVIDIA Step into **`backend/src/`**. Image text extraction is currently a provider slot in the import pipeline. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
+The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, OpenAI GPT-4o image text extraction, and NVIDIA Step into **`backend/src/`**. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
