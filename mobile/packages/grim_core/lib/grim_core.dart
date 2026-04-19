@@ -8,6 +8,7 @@ export 'src/fcm/grim_fcm_manager.dart';
 export 'src/media/grim_image_download_service.dart';
 export 'src/network/dio_client.dart';
 export 'src/network/endpoints.dart';
+export 'src/network/grim_health_client.dart';
 export 'src/network/grim_import_stream_client.dart';
 export 'src/network/grim_sse_decoder.dart';
 export 'src/network/models/grim_import_stream_event.dart';
