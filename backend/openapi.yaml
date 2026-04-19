@@ -2,12 +2,13 @@ openapi: 3.0.3
 info:
   title: Grim API
   description: |
-    HTTP API for Grim’s backend: integration **health**, image **import** (LLM pipeline over SSE), paginated **export**, and **prompt** templates for the extract + analyzing stages.
+    HTTP API for Grim’s backend: integration **health**, manual **capture** notification, image **import** (LLM pipeline over SSE), paginated **export**, and **prompt** templates for the extract + analyzing stages.
 
     | Area | Base path |
     |------|-----------|
     | Health | `GET /health` |
     | Import | `POST /api/v1/import` — `multipart/form-data`, required file field **`image`** (`text/event-stream`) |
+    | Capture | `POST /api/v1/capture` |
     | Export | `GET /api/v1/export` |
     | Prompts | `GET /api/v1/prompts`, `PUT /api/v1/prompts` (JSON or **`multipart/form-data`** fields **`extract_text`** / **`analyzing_text`**) |
 
@@ -32,6 +33,8 @@ tags:
       Extract and analyzing instructions come from the **prompts** templates (`extract_text_prompt.txt`, `analyzing_text_prompt.txt`) unless changed at runtime via **`PUT /api/v1/prompts`**.
   - name: export
     description: Paginated newest-first list from Realtime Database (`page`, `limit`, `is_next`)
+  - name: capture
+    description: Receiver-triggered silent FCM topic request for sender devices to capture and import a photo
   - name: prompts
     description: |
       Read or replace the full prompt strings used by **`POST /api/v1/import`**: extract stage (**`extractTextPrompt`**, instructions before the image) and analyzing stage (**`analyzingTextPrompt`**, system message; extracted text is the user message).
@@ -113,11 +116,11 @@ paths:
         |-----------|----------|--------|
         | **`image`** | yes | Binary image body; `image/*` MIME type preferred; max **500 MB** |
 
-        When the pipeline **succeeds**, the server sends an FCM **topic** data message (`kind: new_result`) so subscribed devices can refresh from `GET /api/v1/export`. Topic defaults to **`grim_new_result`** (override with env `GRIM_FCM_TOPIC`). No FCM send on pipeline failure.
+        When the pipeline **succeeds**, the server sends two receiver-targeted FCM **topic** messages on the configured topic. The visible message is `kind: new_result`, `notificationType: notify`, `role: receiver`. The silent message is `kind: export_refresh`, `notificationType: silent`, `role: receiver`, with `url: /api/v1/export?page=1&limit=20`. Topic defaults to **`grim_new_result`** (override with env `GRIM_FCM_TOPIC`). No FCM send on pipeline failure.
 
         **LLM prompts (configurable):** the extract stage uses current **`extractTextPrompt`** with the uploaded image. The analyzing stage receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. Defaults ask for structured JSON (questions/options/type, then answers); **`extractedText`** and **`finalText`** in the success row are **opaque strings** returned by OpenRouter (often JSON). Change prompts with **`GET/PUT /api/v1/prompts`**.
 
-        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **OpenRouter** (image text extraction) → **OpenRouter** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then FCM topic on success.
+        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **OpenRouter** (image text extraction) → **OpenRouter** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then receiver FCM topic messages on success.
 
         Each SSE message is one `data:` line whose value is a single JSON object:
 
@@ -300,6 +303,29 @@ paths:
                   message: Each prompt file must be at most 2 MB
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/capture:
+    post:
+      tags: [capture]
+      summary: Send capture notification
+      description: |
+        Sends a silent FCM topic data message through the configured Grim notifier. The payload is targeted at sender devices: `kind: capture_request`, `notificationType: silent`, `notification_type: silent`, `role: sender`, and `targetRole: sender`.
+
+        This uses the same configured topic as import success signals: default **`grim_new_result`**, override with env **`GRIM_FCM_TOPIC`**.
+
+        Response is returned after Firebase accepts the send request.
+      operationId: postCapture
+      responses:
+        "200":
+          description: Silent FCM capture request accepted by Firebase
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptureResponse"
+              example:
+                ok: true
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -587,6 +613,15 @@ components:
         - $ref: "#/components/schemas/ImportStreamResult"
         - $ref: "#/components/schemas/ImportStreamTerminalError"
       description: JSON payload carried in one SSE `data:` line for `POST /api/v1/import`.
+
+    CaptureResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+          description: True when Firebase accepted the FCM send request
 
     ExportListResponse:
       type: object

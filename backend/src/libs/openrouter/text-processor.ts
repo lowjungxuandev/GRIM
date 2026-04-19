@@ -4,28 +4,28 @@ import type { FinalTextBuilder, ImageTextExtractor } from "../../api/v1/model/se
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const OPENROUTER_DEFAULT_IMAGE_MODEL = "openrouter/free";
 
+type OpenRouterMessage =
+  | { role: "system"; content: string }
+  | {
+      role: "user";
+      content:
+        | string
+        | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
+    };
+
+type OpenRouterChatResponse = {
+  choices?: Array<{ message?: { content?: unknown } }>;
+};
+
 type OpenRouterChatClient = {
   chat: {
     completions: {
       create(input: {
         model: string;
-        messages: Array<
-          | { role: "system"; content: string }
-          | {
-              role: "user";
-              content:
-                | string
-                | Array<
-                    | { type: "text"; text: string }
-                    | { type: "image_url"; image_url: { url: string } }
-                  >;
-            }
-        >;
+        messages: OpenRouterMessage[];
         max_tokens: number;
         temperature: number;
-      }): Promise<{
-        choices?: Array<{ message?: { content?: unknown } }>;
-      }>;
+      }): Promise<OpenRouterChatResponse>;
     };
   };
 };

@@ -70,7 +70,7 @@ Why this is enough:
 - `finalText` and `imageUrl` are what the mobile client needs when the pipeline succeeds
 - `errorMessage` appears when the pipeline fails
 
-**When import writes:** `ImportService` does **not** touch Realtime Database until after **Cloudinary** (image), image text extraction, and **Step** (final text) have completed. It then performs a single **`set`** on `uploads/{id}` with the full success payload (or a single **`set`** with `errorMessage` if the pipeline failed). The client receives progress and the final row (or terminal error) over the same **HTTP 200** `text/event-stream` response before this write completes from the client’s perspective (the stream’s last `data:` line reflects the persisted outcome).
+**When import writes:** `ImportService` does **not** touch Realtime Database until after **Cloudinary** (image), OpenRouter image text extraction, and OpenRouter final text generation have completed. It then performs a single **`set`** on `uploads/{id}` with the full success payload (or a single **`set`** with `errorMessage` if the pipeline failed). The client receives progress and the final row (or terminal error) over the same **HTTP 200** `text/event-stream` response before this write completes from the client’s perspective (the stream’s last `data:` line reflects the persisted outcome).
 
 ## Write data
 
@@ -148,3 +148,14 @@ After the deployed rules include this index, republish once; the warning should 
 - Realtime Database is a JSON tree.
 - Avoid deep nesting because reading a node reads all children under it.
 - Keep each stored object small and straightforward.
+
+---
+
+**Updated:** 2026-04-19
+**Applies to:** grim backend Realtime Database (`backend/src/libs/firebase/realtime.ts`, `backend/package.json` -> version `0.1.0`)
+**Doc version:** 2
+**Upstream refs:**
+- https://firebase.google.com/docs/database/admin/start#node.js_1
+- https://firebase.google.com/docs/database/admin/structure-data
+- https://firebase.google.com/docs/database/admin/save-data#node.js
+- https://firebase.google.com/docs/database/admin/retrieve-data#node.js

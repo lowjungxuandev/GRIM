@@ -9,7 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_riverpod: ^3.2.0
   google_fonts: ^6.3.0
   grim_core:
     path: packages/grim_core

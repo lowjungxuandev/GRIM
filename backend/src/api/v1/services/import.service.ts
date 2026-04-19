@@ -50,6 +50,7 @@ export class ImportService implements ImportServiceContract {
 
       try {
         await notifier.broadcastNewResult();
+        await notifier.broadcastExportRefresh();
       } catch (error) {
         this.logger.error("failed to send FCM topic broadcast", error);
       }

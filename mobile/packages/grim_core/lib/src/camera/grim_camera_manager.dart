@@ -12,11 +12,7 @@ class GrimCameraManager {
     ResolutionPreset resolutionPreset = ResolutionPreset.high,
     bool enableAudio = false,
   }) async {
-    final controller = CameraController(
-      camera,
-      resolutionPreset,
-      enableAudio: enableAudio,
-    );
+    final controller = CameraController(camera, resolutionPreset, enableAudio: enableAudio);
 
     await controller.initialize();
     return controller;

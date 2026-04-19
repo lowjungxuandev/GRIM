@@ -2,7 +2,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createApp } from "../src/app";
-import type { ImportServiceDependencies, Logger } from "../src/api/v1/model/services.model";
+import type {
+  CaptureService,
+  ImportServiceDependencies,
+  Logger
+} from "../src/api/v1/model/services.model";
 import type { HealthReport } from "../src/api/v1/model/health.model";
 import type { ImportService } from "../src/api/v1/model/services.model";
 import { ExportService } from "../src/api/v1/services/export.service";
@@ -36,6 +40,7 @@ export function stableDegradedHealth(overrides: Partial<Omit<HealthReport, "ok">
 export type BuildTestAppInput = {
   importService?: ImportService;
   exportService?: ExportService;
+  captureService?: CaptureService;
   runHealthChecks?: () => Promise<HealthReport>;
   logger?: Logger;
   /** When set, `GET`/`PUT /api/v1/prompts` require this secret via `X-Grim-Prompt-Secret`. */
@@ -50,6 +55,10 @@ const noopImportService: ImportService = {
   streamImport: async (_request, emit) => {
     emit({ error: { code: "INTERNAL_ERROR", message: "Import not configured in this test shell" } });
   }
+};
+
+const noopCaptureService: CaptureService = {
+  sendCaptureNotification: async () => {}
 };
 
 function createIsolatedPromptSettings(input: BuildTestAppInput): GrimPromptSettings {
@@ -70,11 +79,13 @@ function createIsolatedPromptSettings(input: BuildTestAppInput): GrimPromptSetti
 export function buildTestApp(input: BuildTestAppInput = {}) {
   const importService = input.importService ?? noopImportService;
   const exportService = input.exportService ?? new ExportService(new InMemoryUploadRepository());
+  const captureService = input.captureService ?? noopCaptureService;
   const runHealthChecks = input.runHealthChecks ?? (async () => stableOkHealth());
   const promptSettings = createIsolatedPromptSettings(input);
   return createApp({
     importService,
     exportService,
+    captureService,
     runHealthChecks,
     promptSettings,
     promptAdminSecret: input.promptAdminSecret,
@@ -97,7 +108,13 @@ export function createImportServiceWithStubbedPipeline(deps?: Partial<ImportServ
           cloudinaryPublicId: "test_public_id"
         })
       } satisfies ImportServiceDependencies["imageStorage"]),
-    notifier: deps?.notifier ?? { broadcastNewResult: async () => {} },
+    notifier:
+      deps?.notifier ??
+      {
+        broadcastNewResult: async () => {},
+        broadcastCaptureRequest: async () => {},
+        broadcastExportRefresh: async () => {}
+      },
     logger: deps?.logger ?? silentLogger,
     now: deps?.now ?? (() => 4242),
     generateUploadId: deps?.generateUploadId ?? (() => "integration_upload_id")

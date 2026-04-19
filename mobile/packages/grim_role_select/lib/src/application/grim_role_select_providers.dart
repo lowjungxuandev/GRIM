@@ -1,11 +1,10 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:grim_core/grim_core.dart';
 
-enum GrimRole { sender, receiver }
+import 'grim_role_select_state.dart';
 
-final grimRoleSelectionProvider =
-    NotifierProvider.autoDispose<GrimRoleSelectionNotifier, GrimRole>(
-      GrimRoleSelectionNotifier.new,
-    );
+final grimRoleSelectionProvider = NotifierProvider.autoDispose<GrimRoleSelectionNotifier, GrimRole>(
+  GrimRoleSelectionNotifier.new,
+);
 
 class GrimRoleSelectionNotifier extends Notifier<GrimRole> {
   @override

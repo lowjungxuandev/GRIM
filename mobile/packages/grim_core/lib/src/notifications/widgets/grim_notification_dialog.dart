@@ -30,11 +30,7 @@ class GrimNotificationDialog extends StatelessWidget {
         color: GrimColors.surfaceRaised,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.45), blurRadius: 24, offset: const Offset(0, 12)),
         ],
       ),
       child: Column(
@@ -43,19 +39,12 @@ class GrimNotificationDialog extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: const SizedBox(
-              height: 180,
-              child: ColoredBox(color: Color(0xFF262E44)),
-            ),
+            child: const SizedBox(height: 180, child: ColoredBox(color: Color(0xFF262E44))),
           ),
           const SizedBox(height: 16),
           const Text(
             'You are about to switch to a compact mobile dialog optimized for one-hand controls. Streaming continues without disconnecting the session.',
-            style: TextStyle(
-              color: Color(0xFF9BA3AF),
-              fontSize: 13,
-              height: 1.45,
-            ),
+            style: TextStyle(color: Color(0xFF9BA3AF), fontSize: 13, height: 1.45),
           ),
           const SizedBox(height: 18),
           SizedBox(

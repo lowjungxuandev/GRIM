@@ -10,10 +10,7 @@ class GrimNotificationManager {
       context: context,
       barrierDismissible: true,
       builder: (_) => const Center(
-        child: Material(
-          color: Colors.transparent,
-          child: GrimNotificationDialog(),
-        ),
+        child: Material(color: Colors.transparent, child: GrimNotificationDialog()),
       ),
     );
   }

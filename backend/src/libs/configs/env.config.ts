@@ -7,8 +7,6 @@ export type ServerEnv = {
   OPENROUTER_API_KEY: string;
   OPENROUTER_MODEL?: string;
   OPENROUTER_IMAGE_MODEL?: string;
-  OPENAI_API_KEY?: string;
-  NVAPI_KEY?: string;
   /** Optional URL of a Scalar-hosted API Reference; local spec is always `GET /openapi.yaml`. */
   SCALAR_DOCS_URL?: string;
   /**
@@ -37,8 +35,6 @@ export function loadServerEnv(): ServerEnv {
     OPENROUTER_API_KEY: readRequiredEnv("OPENROUTER_API_KEY"),
     OPENROUTER_MODEL: readOptionalEnv("OPENROUTER_MODEL"),
     OPENROUTER_IMAGE_MODEL: readOptionalEnv("OPENROUTER_IMAGE_MODEL"),
-    OPENAI_API_KEY: readOptionalEnv("OPENAI_API_KEY"),
-    NVAPI_KEY: readOptionalEnv("NVAPI_KEY"),
     SCALAR_DOCS_URL: readOptionalEnv("SCALAR_DOCS_URL"),
     GRIM_FCM_TOPIC: readOptionalEnv("GRIM_FCM_TOPIC"),
     GRIM_PROMPTS_DIR: readOptionalEnv("GRIM_PROMPTS_DIR"),

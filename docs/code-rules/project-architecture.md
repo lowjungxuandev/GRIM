@@ -5,7 +5,7 @@ This document describes the **current** Grim backend layout under `backend/src/`
 ## Entry points
 
 - **`server.ts`** — loads environment (`loadServerEnv` from `libs/configs/env.config.ts`), builds production instances (local `createProductionDependencies`), calls `createApp(...)`, starts HTTP.
-- **`app.ts`** — `createApp(deps)` returns a configured Express app: OpenAPI static file, Scalar docs, health router, `/api/v1` router (import + export), global error handler. Exports `AppDependencies`.
+- **`app.ts`** — `createApp(deps)` returns a configured Express app: OpenAPI static file, Scalar docs, health router, `/api/v1` router (import, capture, export, prompts), global error handler. Exports `AppDependencies`.
 
 There is **no** separate `dependencies.ts`; composition for production lives next to startup in `server.ts`.
 
@@ -13,16 +13,16 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 
 | Layer | Role | Examples (existing files) |
 |--------|------|---------------------------|
-| **`model/`** | Request/response shapes, persistence row types, shared port interfaces | `import.model.ts`, `export.model.ts`, `health.model.ts`, `services.model.ts` |
-| **`services/`** | Use cases / orchestration | `import.service.ts`, `export.service.ts`, `health.service.ts` |
-| **`controllers/`** | Map HTTP → service calls (thin) | `import.controller.ts`, `export.controller.ts`, `health.controller.ts` |
-| **`routes/`** | Routers, middleware per route (e.g. multer on import) | `health.route.ts`, `import.route.ts`, `export.route.ts` |
+| **`model/`** | Request/response shapes, persistence row types, shared port interfaces | `import.model.ts`, `capture.model.ts`, `export.model.ts`, `health.model.ts`, `services.model.ts` |
+| **`services/`** | Use cases / orchestration | `import.service.ts`, `capture.service.ts`, `export.service.ts`, `health.service.ts` |
+| **`controllers/`** | Map HTTP → service calls (thin) | `import.controller.ts`, `capture.controller.ts`, `export.controller.ts`, `health.controller.ts` |
+| **`routes/`** | Routers, middleware per route (e.g. multer on import) | `health.route.ts`, `import.route.ts`, `capture.route.ts`, `export.route.ts`, `prompts.route.ts` |
 
 **Mounted paths today (from `app.ts`):**
 
 - `GET /health` — via `createHealthRouter` (not under `/api/v1`).
 - `GET /openapi.yaml`, `GET /docs`, `GET /docs/` — defined in `app.ts`.
-- `POST /api/v1/import`, `GET /api/v1/export` — under `express.Router()` mounted at `/api/v1`.
+- `POST /api/v1/import`, `POST /api/v1/capture`, `GET /api/v1/export`, `GET /api/v1/prompts`, `PUT /api/v1/prompts` — under `express.Router()` mounted at `/api/v1`.
 
 ## Libraries (`libs/`)
 
@@ -37,6 +37,7 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 | Constants | `libs/constants/limits.contant.ts` | Export/import size limits (filename is spelled **`contant`** in the repo) |
 | Utils | `libs/utils/http.util.ts` | `wrapAsync`, `mapRequestError` |
 | | `libs/utils/api-error.util.ts` | `ApiError` |
+| | `libs/utils/notification.util.ts` | Shared FCM message construction for silent/notify + sender/receiver roles |
 | | `libs/utils/sort-by-created-at.util.ts` | `sortByCreatedAtDesc` (used by Realtime repo + in-memory test repo) |
 
 **Dependency direction (actual imports):** `libs/*` imports types and ports from `api/v1/model/*` where those contracts are defined (e.g. `UploadRepository`, `ImageStorage`). There is no separate `src/domain/` or `src/errors/` folder today.
@@ -48,8 +49,14 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 
 ## Vendor integration write-ups
 
-- **`docs/dependencies/`** — Cloudinary, NVIDIA, Scalar, Firebase implementation notes (`README.md` indexes the folder).
+- **`docs/dependencies/`** — Cloudinary, OpenRouter, Scalar, Firebase implementation notes (`README.md` indexes the folder).
 
 ## What this document does not cover
 
 - Mobile app layout, CI pipelines, deployment topology, or cloud account setup unless described elsewhere in `docs/`.
+
+---
+
+**Updated:** 2026-04-19
+**Applies to:** grim backend architecture (`backend/src/`, `backend/package.json` -> version `0.1.0`)
+**Doc version:** 2

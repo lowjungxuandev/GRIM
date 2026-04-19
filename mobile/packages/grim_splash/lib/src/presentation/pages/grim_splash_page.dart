@@ -1,50 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grim_core/grim_core.dart';
 import 'package:grim_role_select/grim_role_select.dart';
 
-import '../../application/grim_splash_providers.dart';
-
-class GrimSplashPage extends ConsumerStatefulWidget {
+class GrimSplashPage extends StatefulWidget {
   const GrimSplashPage({super.key});
 
   @override
-  ConsumerState<GrimSplashPage> createState() => _GrimSplashPageState();
+  State<GrimSplashPage> createState() => _GrimSplashPageState();
 }
 
-class _GrimSplashPageState extends ConsumerState<GrimSplashPage> {
+class _GrimSplashPageState extends State<GrimSplashPage> {
+  static const Duration _delay = Duration(milliseconds: 900);
+
+  bool _ready = false;
+
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 900), () {
-      if (!mounted) {
-        return;
-      }
+    Future<void>.delayed(_delay, _completeSplash);
+  }
 
-      ref.read(grimSplashReadyProvider.notifier).markReady();
+  void _completeSplash() {
+    if (!mounted) return;
+    setState(() => _ready = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => const GrimRoleSelectPage()));
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<bool>(grimSplashReadyProvider, (previous, next) {
-      if (!next) {
-        return;
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) {
-          return;
-        }
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const GrimRoleSelectPage()),
-        );
-      });
-    });
-
-    final ready = ref.watch(grimSplashReadyProvider);
-
     return Scaffold(
       backgroundColor: GrimColors.scaffold,
       body: SafeArea(
@@ -64,12 +50,8 @@ class _GrimSplashPageState extends ConsumerState<GrimSplashPage> {
                 const SizedBox(height: 40),
                 SizedBox(
                   width: 120,
-                  child: ready
-                      ? const Icon(
-                          Icons.check_circle_outline,
-                          color: GrimColors.accent,
-                          size: 32,
-                        )
+                  child: _ready
+                      ? const Icon(Icons.check_circle_outline, color: GrimColors.accent, size: 32)
                       : const SizedBox(
                           height: 3,
                           child: LinearProgressIndicator(

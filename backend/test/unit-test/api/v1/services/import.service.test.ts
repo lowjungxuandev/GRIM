@@ -14,7 +14,11 @@ describe("ImportService", () => {
         cloudinaryPublicId: "pid"
       }))
     };
-    const notifier = { broadcastNewResult: vi.fn(async () => {}) };
+    const notifier = {
+      broadcastNewResult: vi.fn(async () => {}),
+      broadcastCaptureRequest: vi.fn(async () => {}),
+      broadcastExportRefresh: vi.fn(async () => {})
+    };
     const logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn() };
     const emit = vi.fn();
 
@@ -53,6 +57,7 @@ describe("ImportService", () => {
     expect(finalTextBuilder.buildFinalText).toHaveBeenCalledWith("extracted");
     expect(imageStorage.uploadImage).toHaveBeenCalledWith(Buffer.from("img"), "upl_testid");
     expect(notifier.broadcastNewResult).toHaveBeenCalled();
+    expect(notifier.broadcastExportRefresh).toHaveBeenCalled();
 
     const done = await uploadRepository.getUpload("upl_testid");
     expect(done?.createdAt).toBe(99);
@@ -78,7 +83,7 @@ describe("ImportService", () => {
       textExtractor,
       finalTextBuilder: { buildFinalText: vi.fn(async () => "") },
       imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", cloudinaryPublicId: "p" })) },
-      notifier: { broadcastNewResult: vi.fn() },
+      notifier: { broadcastNewResult: vi.fn(), broadcastCaptureRequest: vi.fn(), broadcastExportRefresh: vi.fn() },
       logger,
       now: () => 7,
       generateUploadId: () => "upl_fail"
@@ -109,7 +114,7 @@ describe("ImportService", () => {
       },
       finalTextBuilder: { buildFinalText: vi.fn() },
       imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", cloudinaryPublicId: "p" })) },
-      notifier: { broadcastNewResult: vi.fn() },
+      notifier: { broadcastNewResult: vi.fn(), broadcastCaptureRequest: vi.fn(), broadcastExportRefresh: vi.fn() },
       logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
       generateUploadId: () => "upl_api"
     });

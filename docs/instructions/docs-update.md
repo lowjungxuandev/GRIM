@@ -7,7 +7,7 @@ Use this when bringing documentation **in line with implementation** and with **
 ## 1. Goals
 
 - Reflect **what the repository actually does** (code, OpenAPI, env vars, routes).
-- Cite or summarize **official upstream documentation** where integration details come from vendors (Firebase, Cloudinary, NVIDIA, Express, Node, etc.).
+- Cite or summarize **official upstream documentation** where integration details come from vendors (Firebase, Cloudinary, OpenRouter, Express, Node, etc.).
 - Reduce **hallucination, imagination, and drift** by separating facts you verified from assumptions.
 
 ---
@@ -44,12 +44,12 @@ Add or refresh a short **footer block** (or YAML front matter, if the file alrea
 ```markdown
 ---
 
-**Updated:** 2026-04-18  
-**Applies to:** grim backend (`backend/package.json` → version `0.1.0`)  
-**Doc version:** 1  
-**Upstream refs:**  
-- https://firebase.google.com/docs/…  
-- https://docs.api.nvidia.com/…  
+**Updated:** 2026-04-18
+**Applies to:** grim backend (`backend/package.json` → version `0.1.0`)
+**Doc version:** 1
+**Upstream refs:**
+- https://firebase.google.com/docs/…
+- https://docs.api.nvidia.com/…
 ```
 
 Adjust paths and URLs to match what you **actually** read. Omit **Upstream refs** if the page is internal-only and has no external doc.
@@ -92,13 +92,13 @@ Adjust paths and URLs to match what you **actually** read. Omit **Upstream refs*
 - HTTP contract: **`backend/openapi.yaml`**
 - Env schema and loader: **`backend/src/libs/configs/env.config.ts`**
 - Architecture overview: **`docs/code-rules/project-architecture.md`**
-- Vendor integration notes (Cloudinary, NVIDIA, Scalar, Firebase): **`docs/dependencies/README.md`**
+- Vendor integration notes (Cloudinary, OpenRouter, Scalar, Firebase): **`docs/dependencies/README.md`**
 - Cleanup rules: **`docs/instructions/code-cleanup.md`**
 
 When this list goes stale relative to the tree, update **this** file’s **Updated** field and the pointers above.
 
 ---
 
-**Updated:** 2026-04-18  
-**Applies to:** grim repository — documentation process (`docs/`, `backend/`)  
-**Doc version:** 2  
+**Updated:** 2026-04-19
+**Applies to:** grim repository — documentation process (`docs/`, `backend/`)
+**Doc version:** 3

@@ -15,12 +15,7 @@ describe("loadServerEnv", () => {
     for (const [k, v] of Object.entries(required)) {
       vi.stubEnv(k, v);
     }
-    for (const key of [
-      "OPENAI_API_KEY",
-      "OPENROUTER_MODEL",
-      "OPENROUTER_IMAGE_MODEL",
-      "NVAPI_KEY"
-    ]) {
+    for (const key of ["OPENROUTER_MODEL", "OPENROUTER_IMAGE_MODEL"]) {
       vi.stubEnv(key, "");
       delete process.env[key];
     }
@@ -62,14 +57,6 @@ describe("loadServerEnv", () => {
     expect(env.OPENROUTER_IMAGE_MODEL).toBe("openrouter/free");
   });
 
-  it("keeps old provider keys optional when present", () => {
-    vi.stubEnv("OPENAI_API_KEY", "openai-key");
-    vi.stubEnv("NVAPI_KEY", "nv-key");
-    const env = loadServerEnv();
-    expect(env.OPENAI_API_KEY).toBe("openai-key");
-    expect(env.NVAPI_KEY).toBe("nv-key");
-  });
-
   it("returns optional vars when set and undefined when blank", () => {
     vi.stubEnv("SCALAR_DOCS_URL", " https://docs.example ");
     vi.stubEnv("GRIM_FCM_TOPIC", "");
@@ -80,7 +67,5 @@ describe("loadServerEnv", () => {
     expect(env.GRIM_FCM_TOPIC).toBeUndefined();
     expect(env.GRIM_PROMPTS_DIR).toBe("/tmp/prompts");
     expect(env.GRIM_PROMPT_ADMIN_SECRET).toBeUndefined();
-    expect(env.OPENAI_API_KEY).toBeUndefined();
-    expect(env.NVAPI_KEY).toBeUndefined();
   });
 });

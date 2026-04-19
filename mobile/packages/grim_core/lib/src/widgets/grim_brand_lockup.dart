@@ -39,11 +39,7 @@ class GrimBrandLockup extends StatelessWidget {
         Text(
           'Secure visual relay',
           textAlign: textAlign,
-          style: TextStyle(
-            color: GrimColors.subtitle,
-            fontSize: subtitleSize,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(color: GrimColors.subtitle, fontSize: subtitleSize, fontWeight: FontWeight.w500),
         ),
       ],
     );

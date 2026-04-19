@@ -26,6 +26,8 @@ export interface ImageStorage {
 
 export interface ResultNotifier {
   broadcastNewResult(): Promise<void>;
+  broadcastCaptureRequest(): Promise<void>;
+  broadcastExportRefresh(): Promise<void>;
 }
 
 export type Logger = Pick<Console, "error" | "warn" | "info">;
@@ -45,4 +47,8 @@ export type ImportStreamEmitter = (data: ImportStreamSseData) => void;
 
 export interface ImportService {
   streamImport(request: ImportRequest, emit: ImportStreamEmitter): Promise<void>;
+}
+
+export interface CaptureService {
+  sendCaptureNotification(): Promise<void>;
 }

@@ -1,5 +1,5 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildTestApp } from "../test-utils";
 
 describe("HTTP wiring (integration)", () => {
@@ -20,5 +20,14 @@ describe("HTTP wiring (integration)", () => {
     const res = await request(app).get("/openapi.yaml").expect(200);
     expect(String(res.headers["content-type"])).toMatch(/yaml/);
     expect(res.text.length).toBeGreaterThan(0);
+  });
+
+  it("wires POST /api/v1/capture to the capture service", async () => {
+    const captureService = { sendCaptureNotification: vi.fn(async () => {}) };
+    const app = buildTestApp({ captureService });
+
+    await request(app).post("/api/v1/capture").expect(200, { ok: true });
+
+    expect(captureService.sendCaptureNotification).toHaveBeenCalledOnce();
   });
 });

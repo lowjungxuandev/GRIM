@@ -15,21 +15,22 @@ class GrimRoleCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  static const double _radius = 14;
+
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected ? GrimColors.accent : GrimColors.outline;
-    final titleColor = selected ? GrimColors.accent : GrimColors.onSurface;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(_radius),
         child: Ink(
+          width: double.infinity,
           decoration: BoxDecoration(
             color: GrimColors.surfaceAlt,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: borderColor, width: 1.5),
+            borderRadius: BorderRadius.circular(_radius),
+            border: Border.all(color: selected ? GrimColors.accent : GrimColors.outline, width: 1.5),
           ),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -38,22 +39,10 @@ class GrimRoleCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    color: titleColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1,
-                  ),
+                  style: TextStyle(color: selected ? GrimColors.accent : GrimColors.onSurface, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    color: Color(0xFFB8B8B8),
-                    fontSize: 14,
-                    height: 1.3,
-                  ),
-                ),
+                Text(description, style: const TextStyle(color: GrimColors.sectionLabel, fontSize: 14, height: 1.3)),
               ],
             ),
           ),

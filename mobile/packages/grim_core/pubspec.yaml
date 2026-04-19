@@ -9,10 +9,14 @@ environment:
 dependencies:
   camera: ^0.11.2+1
   dio: ^5.9.0
+  firebase_analytics: ^12.3.0
   firebase_core: ^4.1.1
   firebase_messaging: ^16.0.3
   flutter:
     sdk: flutter
+  flutter_local_notifications: ^21.0.0
+  flutter_riverpod: ^3.2.0
+  gal: ^2.3.2
 
 dev_dependencies:
   flutter_test:

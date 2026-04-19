@@ -26,6 +26,10 @@
     <string>$(FLUTTER_BUILD_NUMBER)</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>GRIM saves downloaded images to your photo library.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>GRIM needs photo library access to save downloaded images.</string>
     <key>UIApplicationSceneManifest</key>
     <dict>
       <key>UIApplicationSupportsMultipleScenes</key>

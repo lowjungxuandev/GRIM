@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grim_core/grim_core.dart';
 import 'package:grim_receiver_grid/grim_receiver_grid.dart';
 import 'package:grim_sender_camera/grim_sender_camera.dart';
 
 import '../../application/grim_role_select_providers.dart';
+import '../../application/grim_role_select_state.dart';
 import '../widgets/grim_role_card.dart';
 
 class GrimRoleSelectPage extends ConsumerWidget {
@@ -12,8 +12,6 @@ class GrimRoleSelectPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(grimRoleSelectionProvider);
-
     return Scaffold(
       backgroundColor: GrimColors.scaffold,
       body: SafeArea(
@@ -24,51 +22,34 @@ class GrimRoleSelectPage extends ConsumerWidget {
             children: [
               const GrimBrandLockup(),
               const SizedBox(height: 36),
-              GrimRoleCard(
-                title: 'SENDER',
-                description: 'Capture and transmit photos',
-                selected: selected == GrimRole.sender,
-                onTap: () => ref
-                    .read(grimRoleSelectionProvider.notifier)
-                    .setRole(GrimRole.sender),
-              ),
-              const SizedBox(height: 16),
-              GrimRoleCard(
-                title: 'RECEIVER',
-                description: 'Receive photo intel in grid',
-                selected: selected == GrimRole.receiver,
-                onTap: () => ref
-                    .read(grimRoleSelectionProvider.notifier)
-                    .setRole(GrimRole.receiver),
-              ),
+              for (final o in grimRoleOptions) ...[
+                GrimRoleCard(
+                  title: o.title,
+                  description: o.description,
+                  selected: ref.watch(grimRoleSelectionProvider) == o.role,
+                  onTap: () => ref.read(grimRoleSelectionProvider.notifier).setRole(o.role),
+                ),
+                if (o.role != grimRoleOptions.last.role) const SizedBox(height: 16),
+              ],
               const Spacer(),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
                   onPressed: () {
                     final role = ref.read(grimRoleSelectionProvider);
-                    final route = role == GrimRole.sender
-                        ? MaterialPageRoute<void>(
-                            builder: (_) => const GrimSenderCameraPage(),
-                          )
-                        : MaterialPageRoute<void>(
-                            builder: (_) => const GrimReceiverGridPage(),
-                          );
-
-                    Navigator.of(context).push(route);
+                    final page = switch (role) {
+                      GrimRole.sender => const GrimSenderCameraPage(),
+                      GrimRole.receiver => const GrimReceiverGridPage(),
+                    };
+                    Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => page));
                   },
                   child: const Text('CONTINUE'),
                 ),
               ),
               const SizedBox(height: 16),
               const Center(
-                child: Text(
-                  'Choose role to proceed',
-                  style: TextStyle(color: GrimColors.muted, fontSize: 13),
-                ),
+                child: Text('Choose role to proceed', style: TextStyle(color: GrimColors.muted, fontSize: 13)),
               ),
             ],
           ),

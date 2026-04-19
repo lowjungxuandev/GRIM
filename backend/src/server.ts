@@ -3,6 +3,7 @@ import "dotenv/config";
 import type { AppDependencies } from "./app";
 import { createApp } from "./app";
 import { createHealthRunner } from "./api/v1/services/health.service";
+import { CaptureService } from "./api/v1/services/capture.service";
 import { ExportService } from "./api/v1/services/export.service";
 import { ImportService } from "./api/v1/services/import.service";
 import { loadServerEnv, type ServerEnv } from "./libs/configs/env.config";
@@ -23,6 +24,11 @@ function createProductionDependencies(env: ServerEnv): AppDependencies {
   const realtimeDb = getRealtimeDb(firebaseApp);
   const uploadRepository = new FirebaseUploadRepository(realtimeDb);
   const exportService = new ExportService(uploadRepository);
+  const notifier = new FirebaseNotifier(
+    firebaseApp,
+    env.GRIM_FCM_TOPIC ?? DEFAULT_FCM_BROADCAST_TOPIC
+  );
+  const captureService = new CaptureService(notifier);
   const openRouterModel =
     env.OPENROUTER_MODEL ?? env.OPENROUTER_IMAGE_MODEL ?? OPENROUTER_DEFAULT_IMAGE_MODEL;
   const openRouter = new OpenRouterTextProcessor(
@@ -36,13 +42,14 @@ function createProductionDependencies(env: ServerEnv): AppDependencies {
     textExtractor: openRouter,
     finalTextBuilder: openRouter,
     imageStorage: new CloudinaryImageStore(),
-    notifier: new FirebaseNotifier(firebaseApp, env.GRIM_FCM_TOPIC ?? DEFAULT_FCM_BROADCAST_TOPIC),
+    notifier,
     logger: console
   });
 
   return {
     importService,
     exportService,
+    captureService,
     runHealthChecks: createHealthRunner(realtimeDb, env.OPENROUTER_API_KEY),
     logger: console,
     promptSettings,

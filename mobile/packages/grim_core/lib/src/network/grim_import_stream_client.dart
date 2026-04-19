@@ -8,12 +8,7 @@ import 'grim_sse_decoder.dart';
 import 'models/grim_import_stream_event.dart';
 
 class GrimImportHttpException implements Exception {
-  const GrimImportHttpException({
-    required this.statusCode,
-    required this.code,
-    required this.message,
-    this.body,
-  });
+  const GrimImportHttpException({required this.statusCode, required this.code, required this.message, this.body});
 
   final int statusCode;
   final String code;
@@ -46,17 +41,12 @@ class GrimImportStreamClient {
     final response = await _dio.post<ResponseBody>(
       GrimEndpoints.import,
       data: FormData.fromMap({
-        'image': await MultipartFile.fromFile(
-          imagePath,
-          filename: filename ?? _fileNameFromPath(imagePath),
-        ),
+        'image': await MultipartFile.fromFile(imagePath, filename: filename ?? _fileNameFromPath(imagePath)),
       }),
       cancelToken: cancelToken,
       options: Options(
         responseType: ResponseType.stream,
-        headers: const <String, Object>{
-          Headers.acceptHeader: 'text/event-stream, application/json',
-        },
+        headers: const <String, Object>{Headers.acceptHeader: 'text/event-stream, application/json'},
         validateStatus: (_) => true,
         sendTimeout: const Duration(minutes: 2),
         receiveTimeout: const Duration(minutes: 5),
@@ -82,9 +72,7 @@ class GrimImportStreamClient {
       );
     }
 
-    await for (final payload in _sseDecoder.decode(
-      responseBody.stream.cast<List<int>>(),
-    )) {
+    await for (final payload in _sseDecoder.decode(responseBody.stream.cast<List<int>>())) {
       final decoded = jsonDecode(payload);
       if (decoded is! Map<String, dynamic>) {
         throw FormatException('Unexpected SSE payload: $payload');
@@ -99,10 +87,7 @@ class GrimImportStreamClient {
     ResponseBody responseBody, {
     String? fallbackMessage,
   }) async {
-    final body = await responseBody.stream
-        .cast<List<int>>()
-        .transform(utf8.decoder)
-        .join();
+    final body = await responseBody.stream.cast<List<int>>().transform(utf8.decoder).join();
 
     try {
       final decoded = jsonDecode(body);
@@ -112,10 +97,7 @@ class GrimImportStreamClient {
           return GrimImportHttpException(
             statusCode: statusCode,
             code: _asString(error['code']) ?? 'HTTP_ERROR',
-            message:
-                _asString(error['message']) ??
-                fallbackMessage ??
-                'Import request failed.',
+            message: _asString(error['message']) ?? fallbackMessage ?? 'Import request failed.',
             body: body,
           );
         }

@@ -41,18 +41,9 @@ abstract final class GrimTheme {
             fontWeight: FontWeight.w600,
             fontSize: 15,
           ),
-          bodyLarge: base.textTheme.bodyLarge?.copyWith(
-            color: GrimColors.onSurface,
-            fontSize: 15,
-          ),
-          bodyMedium: base.textTheme.bodyMedium?.copyWith(
-            color: GrimColors.muted,
-            fontSize: 13,
-          ),
-          bodySmall: base.textTheme.bodySmall?.copyWith(
-            color: GrimColors.muted,
-            fontSize: 12,
-          ),
+          bodyLarge: base.textTheme.bodyLarge?.copyWith(color: GrimColors.onSurface, fontSize: 15),
+          bodyMedium: base.textTheme.bodyMedium?.copyWith(color: GrimColors.muted, fontSize: 13),
+          bodySmall: base.textTheme.bodySmall?.copyWith(color: GrimColors.muted, fontSize: 12),
           labelLarge: base.textTheme.labelLarge?.copyWith(
             color: GrimColors.onSurface,
             fontWeight: FontWeight.w600,
@@ -134,14 +125,8 @@ abstract final class GrimTheme {
           side: const BorderSide(color: GrimColors.outline),
         ),
       ),
-      listTileTheme: const ListTileThemeData(
-        iconColor: GrimColors.iconMuted,
-        textColor: GrimColors.onSurface,
-      ),
-      dividerTheme: const DividerThemeData(
-        color: GrimColors.outline,
-        thickness: 1,
-      ),
+      listTileTheme: const ListTileThemeData(iconColor: GrimColors.iconMuted, textColor: GrimColors.onSurface),
+      dividerTheme: const DividerThemeData(color: GrimColors.outline, thickness: 1),
       iconTheme: const IconThemeData(color: GrimColors.onSurface, size: 24),
       dialogTheme: DialogThemeData(
         backgroundColor: const Color(0xFF1E2329),
@@ -152,17 +137,11 @@ abstract final class GrimTheme {
           fontSize: 16,
           fontWeight: FontWeight.w700,
         ),
-        contentTextStyle: textTheme.bodyMedium?.copyWith(
-          color: GrimColors.muted,
-          fontSize: 13,
-          height: 1.45,
-        ),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(color: GrimColors.muted, fontSize: 13, height: 1.45),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: GrimColors.surface,
-        contentTextStyle: textTheme.bodyMedium?.copyWith(
-          color: GrimColors.onSurface,
-        ),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(color: GrimColors.onSurface),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),

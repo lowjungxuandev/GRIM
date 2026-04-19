@@ -4,17 +4,50 @@ import 'package:flutter/material.dart';
 import '../../theme/grim_colors.dart';
 import '../grim_camera_manager.dart';
 
-class GrimCameraPreview extends StatefulWidget {
-  const GrimCameraPreview({super.key, this.label = 'Live camera feed'});
+class GrimCameraPreviewController {
+  CameraController? _controller;
 
+  bool get isReady => _controller?.value.isInitialized ?? false;
+
+  Future<String> takePicturePath() async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      throw StateError('Camera is not ready.');
+    }
+    if (controller.value.isTakingPicture) {
+      throw StateError('Camera is already taking a picture.');
+    }
+
+    final file = await controller.takePicture();
+    return file.path;
+  }
+
+  void _attach(CameraController controller) {
+    _controller = controller;
+  }
+
+  void _detach(CameraController controller) {
+    if (identical(_controller, controller)) {
+      _controller = null;
+    }
+  }
+
+  void _detachAll() {
+    _controller = null;
+  }
+}
+
+class GrimCameraPreview extends StatefulWidget {
+  const GrimCameraPreview({super.key, this.controller, this.label = 'Live camera feed'});
+
+  final GrimCameraPreviewController? controller;
   final String label;
 
   @override
   State<GrimCameraPreview> createState() => _GrimCameraPreviewState();
 }
 
-class _GrimCameraPreviewState extends State<GrimCameraPreview>
-    with WidgetsBindingObserver {
+class _GrimCameraPreviewState extends State<GrimCameraPreview> with WidgetsBindingObserver {
   CameraController? _controller;
   List<CameraDescription> _cameras = const [];
   String? _errorMessage;
@@ -25,6 +58,20 @@ class _GrimCameraPreviewState extends State<GrimCameraPreview>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeCamera();
+  }
+
+  @override
+  void didUpdateWidget(covariant GrimCameraPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) {
+      return;
+    }
+
+    oldWidget.controller?._detachAll();
+    final controller = _controller;
+    if (controller != null && controller.value.isInitialized) {
+      widget.controller?._attach(controller);
+    }
   }
 
   @override
@@ -51,20 +98,13 @@ class _GrimCameraPreviewState extends State<GrimCameraPreview>
     });
 
     try {
-      final cameras = _cameras.isEmpty
-          ? await GrimCameraManager.availableCamerasList()
-          : _cameras;
+      final cameras = _cameras.isEmpty ? await GrimCameraManager.availableCamerasList() : _cameras;
 
       if (cameras.isEmpty) {
-        throw CameraException(
-          'NoCameraAvailable',
-          'No cameras were found on this device.',
-        );
+        throw CameraException('NoCameraAvailable', 'No cameras were found on this device.');
       }
 
-      final nextController = await GrimCameraManager.createController(
-        cameras.first,
-      );
+      final nextController = await GrimCameraManager.createController(cameras.first);
       final previousController = _controller;
 
       if (!mounted) {
@@ -78,6 +118,10 @@ class _GrimCameraPreviewState extends State<GrimCameraPreview>
         _isInitializing = false;
       });
 
+      widget.controller?._attach(nextController);
+      if (previousController != null) {
+        widget.controller?._detach(previousController);
+      }
       await previousController?.dispose();
     } on CameraException catch (error) {
       if (!mounted) {
@@ -103,6 +147,9 @@ class _GrimCameraPreviewState extends State<GrimCameraPreview>
   Future<void> _disposeController({required bool updateState}) async {
     final controller = _controller;
     _controller = null;
+    if (controller != null) {
+      widget.controller?._detach(controller);
+    }
 
     if (updateState && mounted) {
       setState(() {});
@@ -114,6 +161,7 @@ class _GrimCameraPreviewState extends State<GrimCameraPreview>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.controller?._detachAll();
     _disposeController(updateState: false);
     super.dispose();
   }
@@ -129,11 +177,7 @@ class _GrimCameraPreviewState extends State<GrimCameraPreview>
           top: 16,
           child: Text(
             widget.label,
-            style: const TextStyle(
-              color: Color(0xFF8B8B7A),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(color: Color(0xFF8B8B7A), fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -144,12 +188,7 @@ class _GrimCameraPreviewState extends State<GrimCameraPreview>
     if (_isInitializing) {
       return const ColoredBox(
         color: GrimColors.surface,
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: GrimColors.accent,
-          ),
-        ),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: GrimColors.accent)),
       );
     }
 
@@ -163,20 +202,12 @@ class _GrimCameraPreviewState extends State<GrimCameraPreview>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.camera_alt_outlined,
-                  color: GrimColors.placeholderIcon,
-                  size: 42,
-                ),
+                const Icon(Icons.camera_alt_outlined, color: GrimColors.placeholderIcon, size: 42),
                 const SizedBox(height: 12),
                 Text(
                   errorMessage,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: GrimColors.muted,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
+                  style: const TextStyle(color: GrimColors.muted, fontSize: 13, height: 1.4),
                 ),
               ],
             ),

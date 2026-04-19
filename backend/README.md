@@ -33,22 +33,24 @@ Optional:
 
 - `OPENROUTER_MODEL` — OpenRouter model/router for both LLM stages (default `openrouter/free`)
 - `OPENROUTER_IMAGE_MODEL` — legacy alias used when `OPENROUTER_MODEL` is unset
-- `OPENAI_API_KEY` — accepted for local compatibility, not used at runtime
-- `NVAPI_KEY` — accepted for local compatibility, not used at runtime
-- `GRIM_FCM_TOPIC` — FCM topic for completion broadcasts (default `grim_new_result`)
+- `GRIM_FCM_TOPIC` — FCM topic for capture/import signals (default `grim_new_result`)
 
 ### API
 
 - `GET /docs` — Scalar API Reference UI (loads `openapi.yaml` from this server)
-- `GET /openapi.yaml` — OpenAPI 3 spec (health, import, export)
+- `GET /openapi.yaml` — OpenAPI 3 spec (health, import, capture, export, prompts)
 - `GET /health`
   - integration checks (Firebase Realtime Database, OpenRouter, Cloudinary); **200** or **503**; JSON matches OpenAPI schema `IntegrationHealthReport`
+- `POST /api/v1/capture`
+  - receiver-triggered capture request
+  - sends a silent FCM topic data message to sender devices: `kind: capture_request`, `notificationType: silent`, `role: sender`
+  - returns `{ "ok": true }` after Firebase accepts the send request
 - `POST /api/v1/import`
   - accepts `multipart/form-data` with exactly one file part named **`image`** (e.g. `<input name="image" type="file">`)
   - **curl:** use **`-F` / `--form`** and **do not** set `Content-Type` yourself — curl must add `boundary=…`. Use one part type, e.g. **`-F 'image=@photo.jpg;type=image/jpeg'`** (not a comma-separated list of MIME types)
   - **Scalar:** if “Try it” fails, remove a manual **`Content-Type: multipart/form-data`** header so the UI can send a proper boundary
   - returns **200** `text/event-stream` (SSE): status events, then terminal JSON (success row or `error`)
-  - on success, broadcasts FCM to topic `grim_new_result` (or `GRIM_FCM_TOPIC`) so subscribed devices can call export
+  - on success, writes the row to Realtime Database, then sends two receiver FCM signals on topic `grim_new_result` (or `GRIM_FCM_TOPIC`): visible `kind: new_result` and silent `kind: export_refresh` with `url: /api/v1/export?page=1&limit=20`
 - `GET /api/v1/export`
   - optional `page` (default 1), optional `limit` (default 20, max 50)
   - returns `200` paginated JSON (`data`, `page`, `limit`, `is_next`); newest first by `createdAt`; completed rows add `finalText`, `imageUrl`, `updatedAt`; failed rows add `errorMessage`, `updatedAt`
@@ -58,7 +60,13 @@ Optional:
 
 Reference docs used to design the current implementation and future follow-up work:
 
-- **`docs/dependencies/`** — vendor integration notes (Cloudinary, NVIDIA, Scalar, Firebase); start at [`docs/dependencies/README.md`](../docs/dependencies/README.md).
+- **`docs/dependencies/`** — vendor integration notes (Cloudinary, OpenRouter via the OpenAI SDK, Scalar, Firebase); start at [`docs/dependencies/README.md`](../docs/dependencies/README.md).
 - Repository **`docs/`** (top level): `workflow.md` (target end-to-end backend flow), `specification.md`, `testing-plan.md`, plus `code-rules/`, `instructions/`, `design/`.
 
-The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, and OpenRouter-backed LLM stages into **`backend/src/`**. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
+The v1 backend wires Cloudinary, Firebase Admin / Realtime Database / FCM, and OpenRouter-backed LLM stages into **`backend/src/`**. OpenRouter calls use the official `openai` Node SDK with `baseURL: "https://openrouter.ai/api/v1"`; there is no direct OpenAI API key runtime path. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
+
+---
+
+**Updated:** 2026-04-19
+**Applies to:** grim backend (`backend/package.json` -> version `0.1.0`)
+**Doc version:** 2

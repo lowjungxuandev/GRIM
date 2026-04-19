@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:grim_core/grim_core.dart';
 import 'package:grim_splash/grim_splash.dart';
 
+import 'firebase_options.dart';
 import 'theme/grim_app_theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await GrimFcmManager().initialize();
   runApp(const ProviderScope(child: MainApp()));
 }
 
