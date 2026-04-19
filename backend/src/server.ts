@@ -11,13 +11,10 @@ import { DEFAULT_FCM_BROADCAST_TOPIC, FirebaseNotifier } from "./libs/firebase/f
 import { getFirebaseAdminApp } from "./libs/firebase/admin";
 import { FirebaseUploadRepository, getRealtimeDb } from "./libs/firebase/realtime";
 import { GrimPromptSettings } from "./libs/utils/prompt.util";
-import { NvidiaStepFinalTextBuilder } from "./libs/nvidia/step-3.5-flash";
-import { OpenAIGpt4oImageTextExtractor } from "./libs/openai/gpt-4o-image-text-extractor";
-import type { ImageTextExtractor } from "./api/v1/model/services.model";
 import {
   OPENROUTER_DEFAULT_IMAGE_MODEL,
-  OpenRouterImageTextExtractor
-} from "./libs/openrouter/image-text-extractor";
+  OpenRouterTextProcessor
+} from "./libs/openrouter/text-processor";
 
 function createProductionDependencies(env: ServerEnv): AppDependencies {
   const promptsDir = env.GRIM_PROMPTS_DIR ?? path.join(process.cwd(), "prompts");
@@ -26,10 +23,18 @@ function createProductionDependencies(env: ServerEnv): AppDependencies {
   const realtimeDb = getRealtimeDb(firebaseApp);
   const uploadRepository = new FirebaseUploadRepository(realtimeDb);
   const exportService = new ExportService(uploadRepository);
+  const openRouterModel =
+    env.OPENROUTER_MODEL ?? env.OPENROUTER_IMAGE_MODEL ?? OPENROUTER_DEFAULT_IMAGE_MODEL;
+  const openRouter = new OpenRouterTextProcessor(
+    env.OPENROUTER_API_KEY,
+    openRouterModel,
+    () => promptSettings.getExtractTextPrompt(),
+    () => promptSettings.getAnalyzingTextPrompt()
+  );
   const importService = new ImportService({
     uploadRepository,
-    textExtractor: createImageTextExtractor(env, promptSettings),
-    finalTextBuilder: new NvidiaStepFinalTextBuilder(env.NVAPI_KEY, () => promptSettings.getAnalyzingTextPrompt()),
+    textExtractor: openRouter,
+    finalTextBuilder: openRouter,
     imageStorage: new CloudinaryImageStore(),
     notifier: new FirebaseNotifier(firebaseApp, env.GRIM_FCM_TOPIC ?? DEFAULT_FCM_BROADCAST_TOPIC),
     logger: console
@@ -38,32 +43,11 @@ function createProductionDependencies(env: ServerEnv): AppDependencies {
   return {
     importService,
     exportService,
-    runHealthChecks: createHealthRunner(realtimeDb, env.NVAPI_KEY),
+    runHealthChecks: createHealthRunner(realtimeDb, env.OPENROUTER_API_KEY),
     logger: console,
     promptSettings,
     promptAdminSecret: env.GRIM_PROMPT_ADMIN_SECRET
   };
-}
-
-function createImageTextExtractor(env: ServerEnv, promptSettings: GrimPromptSettings): ImageTextExtractor {
-  const provider = env.IMAGE_EXTRACT_PROVIDER ?? "openai";
-  if (provider === "openrouter") {
-    if (!env.OPENROUTER_API_KEY) {
-      throw new Error("Missing required env var OPENROUTER_API_KEY");
-    }
-    return new OpenRouterImageTextExtractor(
-      env.OPENROUTER_API_KEY,
-      env.OPENROUTER_IMAGE_MODEL ?? OPENROUTER_DEFAULT_IMAGE_MODEL,
-      () => promptSettings.getExtractTextPrompt()
-    );
-  }
-
-  if (!env.OPENAI_API_KEY) {
-    throw new Error("Missing required env var OPENAI_API_KEY");
-  }
-  return new OpenAIGpt4oImageTextExtractor(env.OPENAI_API_KEY, () =>
-    promptSettings.getExtractTextPrompt()
-  );
 }
 
 const env = loadServerEnv();

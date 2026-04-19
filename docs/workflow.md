@@ -2,7 +2,7 @@
 
 1. Mobile calls `POST /api/v1/import` with an image.
 2. Backend responds **200** with **`text/event-stream`** and streams JSON `data:` lines until processing finishes: progress `{"status":"extracting_text"}` and `{"status":"analyzing_text"}`, then either the full success row (same fields as under `uploads/{id}`) or `{"error":{…}}`.
-3. Backend runs the pipeline in order: **Cloudinary** (store image) → **OpenAI GPT-4o** (image text extraction) → **Step** (analyze / final text) → **Realtime Database** (`uploads/{id}`, one write when the row is ready or on failure). If the pipeline succeeds, it then sends an FCM **topic** data message (`kind: new_result`) so subscribed clients can refresh.
+3. Backend runs the pipeline in order: **Cloudinary** (store image) → **OpenRouter** (image text extraction) → **OpenRouter** (final text) → **Realtime Database** (`uploads/{id}`, one write when the row is ready or on failure). If the pipeline succeeds, it then sends an FCM **topic** data message (`kind: new_result`) so subscribed clients can refresh.
 4. Mobile calls `GET /api/v1/export` for newest-first rows (see `backend/openapi.yaml` for `data`, `page`, `limit`, `is_next`).
 
 ## Routes
@@ -16,16 +16,15 @@ sequenceDiagram
   participant M as Mobile
   participant B as Backend
   participant C as Cloudinary
-  participant V as OpenAI GPT-4o
-  participant S as Step
+  participant O as OpenRouter
   participant R as Realtime DB
   participant F as FCM
   M->>B: POST /api/v1/import (image)
   B->>C: upload image
   B-->>M: SSE extracting_text
-  B->>V: image text extraction
+  B->>O: image text extraction
   B-->>M: SSE analyzing_text
-  B->>S: final text
+  B->>O: final text
   B->>R: persist under uploads/
   B-->>M: SSE final row or error
   alt pipeline succeeded

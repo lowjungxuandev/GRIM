@@ -20,7 +20,7 @@ export function stableOkHealth(): HealthReport {
   return {
     ok: true,
     firebase: { ok: true, latencyMs: 0 },
-    nvidiaNim: { ok: true, latencyMs: 0 },
+    openRouter: { ok: true, latencyMs: 0 },
     cloudinary: { ok: true, latencyMs: 0 }
   };
 }

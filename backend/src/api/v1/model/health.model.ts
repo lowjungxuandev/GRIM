@@ -7,6 +7,6 @@ export type DependencyCheck = {
 export type HealthReport = {
   ok: boolean;
   firebase: DependencyCheck;
-  nvidiaNim: DependencyCheck;
+  openRouter: DependencyCheck;
   cloudinary: DependencyCheck;
 };

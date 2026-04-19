@@ -31,10 +31,7 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 | Firebase | `libs/firebase/admin.ts` | Admin app init from env |
 | | `libs/firebase/realtime.ts` | `getRealtimeDb`, `FirebaseUploadRepository` |
 | | `libs/firebase/fcm.ts` | `FirebaseNotifier`, default topic constant |
-| OpenAI | `libs/openai/gpt-4o-image-text-extractor.ts` | GPT-4o image text extraction |
-| OpenRouter | `libs/openrouter/image-text-extractor.ts` | OpenRouter image text extraction |
-| NVIDIA | `libs/nvidia/api.client.ts` | Shared chat HTTP and response normalization |
-| | `libs/nvidia/step-3.5-flash.ts` | Step final text |
+| OpenRouter | `libs/openrouter/text-processor.ts` | OpenRouter image extraction and final text |
 | Cloudinary | `libs/cloudinary/utils.ts` | Upload store, mapping, ping used by health |
 | Config | `libs/configs/env.config.ts` | `ServerEnv`, `loadServerEnv` |
 | Constants | `libs/constants/limits.contant.ts` | Export/import size limits (filename is spelled **`contant`** in the repo) |
@@ -47,7 +44,7 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 ## Spec and tests (outside `src/`)
 
 - **`backend/openapi.yaml`** — HTTP contract referenced by Scalar and tests.
-- **`backend/test/`** — Vitest + Supertest. **`test/setup-env.ts`** loads **`backend/.env`** before any test file. Root tests (e.g. **`app.test.ts`**) build **`createApp`** with in-memory repositories and doubles from **`test/test-utils.ts`** / **`test/in-memory-upload-repository.ts`**. **`test/unit-test/libs/**`** mirrors **`src/libs/**`** and runs **integration-style** checks against Cloudinary, Firebase, and NVIDIA; rules and prerequisites are in **`docs/code-rules/unit-test-rules.md`** and **`backend/README.md`** → **Testing**.
+- **`backend/test/`** — Vitest + Supertest. **`test/setup-env.ts`** loads **`backend/.env`** before any test file. Root tests build **`createApp`** with in-memory repositories and doubles from **`test/test-utils.ts`** / **`test/in-memory-upload-repository.ts`**. **`test/unit-test/libs/**`** mirrors **`src/libs/**`** and runs adapter checks against Cloudinary, Firebase, and OpenRouter where applicable; rules and prerequisites are in **`docs/code-rules/unit-test-rules.md`** and **`backend/README.md`** → **Testing**.
 
 ## Vendor integration write-ups
 

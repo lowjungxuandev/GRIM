@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Grim API
   description: |
-    HTTP API for Grim’s backend: integration **health**, image **import** (LLM pipeline over SSE), paginated **export**, and **prompt** templates for the extract + Step stages.
+    HTTP API for Grim’s backend: integration **health**, image **import** (LLM pipeline over SSE), paginated **export**, and **prompt** templates for the extract + analyzing stages.
 
     | Area | Base path |
     |------|-----------|
@@ -24,17 +24,17 @@ servers:
 
 tags:
   - name: health
-    description: Firebase, NVIDIA NIM, and Cloudinary readiness
+    description: Firebase, OpenRouter, and Cloudinary readiness
   - name: import
     description: |
       Multipart image upload (`multipart/form-data`); the file part must be named **`image`**.
       Response is Server-Sent Events until the pipeline finishes.
-      Extract and Step instructions come from the **prompts** templates (`extract_text_prompt.txt`, `analyzing_text_prompt.txt`) unless changed at runtime via **`PUT /api/v1/prompts`**.
+      Extract and analyzing instructions come from the **prompts** templates (`extract_text_prompt.txt`, `analyzing_text_prompt.txt`) unless changed at runtime via **`PUT /api/v1/prompts`**.
   - name: export
     description: Paginated newest-first list from Realtime Database (`page`, `limit`, `is_next`)
   - name: prompts
     description: |
-      Read or replace the full prompt strings used by **`POST /api/v1/import`**: extract stage (**`extractTextPrompt`**, instructions before the image) and Step (**`analyzingTextPrompt`**, system message; extracted text is the user message).
+      Read or replace the full prompt strings used by **`POST /api/v1/import`**: extract stage (**`extractTextPrompt`**, instructions before the image) and analyzing stage (**`analyzingTextPrompt`**, system message; extracted text is the user message).
       Files on disk: **`extract_text_prompt.txt`**, **`analyzing_text_prompt.txt`** under **`GRIM_PROMPTS_DIR`**. Request body for **PUT** is JSON (server **`express.json` limit 2 MB**).
 
 paths:
@@ -44,7 +44,7 @@ paths:
       summary: Integration health
       description: |
         Parallel checks: **Firebase** Realtime Database (`/.info/serverTimeOffset`),
-        **NVIDIA NIM** `GET /v1/models` with your API key, **Cloudinary** management ping.
+        **OpenRouter** models API with your API key, **Cloudinary** management ping.
 
         | HTTP | Meaning |
         |------|---------|
@@ -66,7 +66,7 @@ paths:
                     firebase:
                       ok: true
                       latencyMs: 24
-                    nvidiaNim:
+                    openRouter:
                       ok: true
                       latencyMs: 156
                     cloudinary:
@@ -79,17 +79,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/IntegrationHealthReport"
               examples:
-                nvidiaUnauthorized:
-                  summary: NVIDIA key rejected (API reachable)
+                openRouterUnauthorized:
+                  summary: OpenRouter key rejected (API reachable)
                   value:
                     ok: false
                     firebase:
                       ok: true
                       latencyMs: 18
-                    nvidiaNim:
+                    openRouter:
                       ok: false
                       latencyMs: 42
-                      error: NVIDIA NIM API rejected the API key (unauthorized)
+                      error: 401 Unauthorized
                     cloudinary:
                       ok: true
                       latencyMs: 71
@@ -115,14 +115,14 @@ paths:
 
         When the pipeline **succeeds**, the server sends an FCM **topic** data message (`kind: new_result`) so subscribed devices can refresh from `GET /api/v1/export`. Topic defaults to **`grim_new_result`** (override with env `GRIM_FCM_TOPIC`). No FCM send on pipeline failure.
 
-        **LLM prompts (configurable):** the extract stage uses current **`extractTextPrompt`** with the uploaded image. Step receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. Defaults ask for structured JSON (questions/options/type, then answers); **`extractedText`** and **`finalText`** in the success row are **opaque strings** returned by the models (often JSON). Change prompts with **`GET/PUT /api/v1/prompts`**.
+        **LLM prompts (configurable):** the extract stage uses current **`extractTextPrompt`** with the uploaded image. The analyzing stage receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. Defaults ask for structured JSON (questions/options/type, then answers); **`extractedText`** and **`finalText`** in the success row are **opaque strings** returned by OpenRouter (often JSON). Change prompts with **`GET/PUT /api/v1/prompts`**.
 
-        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **OpenAI GPT-4o** (image text extraction) → **Step** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then FCM topic on success.
+        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **OpenRouter** (image text extraction) → **OpenRouter** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then FCM topic on success.
 
         Each SSE message is one `data:` line whose value is a single JSON object:
 
         1. `{"status":"extracting_text"}` — after Cloudinary, before image text extraction.
-        2. `{"status":"analyzing_text"}` — after extraction, before Step.
+        2. `{"status":"analyzing_text"}` — after extraction, before final text.
         3. On success: a JSON object with `id`, `createdAt`, `updatedAt`, `extractedText`, `finalText`, `imageUrl`, and `cloudinaryPublicId` (same shape as stored under `uploads/{id}`).
         4. On failure: `{"error":{"code":"…","message":"…"}}` (same `code` / `message` style as `ErrorBody` elsewhere). If **image storage** fails before any `status` event, the stream may contain **only** this terminal `data:` line. If the stream has already started, this appears as the last `data:` line instead of a separate HTTP error body.
 
@@ -204,7 +204,7 @@ paths:
       tags: [prompts]
       summary: Get LLM prompt templates
       description: |
-        Returns the current **`extractTextPrompt`** (extract stage instructions) and **`analyzingTextPrompt`** (Step system instructions).
+        Returns the current **`extractTextPrompt`** (extract stage instructions) and **`analyzingTextPrompt`** (final-text system instructions).
 
         When the server sets env **`GRIM_PROMPT_ADMIN_SECRET`**, clients must send header **`X-Grim-Prompt-Secret`** with that exact value or the call returns **401**.
       operationId: getPrompts
@@ -262,7 +262,7 @@ paths:
                   format: binary
                 analyzing_text:
                   type: string
-                  description: Step system prompt — same as **`extract_text`**
+                  description: Final-text system prompt — same as **`extract_text`**
                   format: binary
           application/json:
             schema:
@@ -513,15 +513,15 @@ components:
 
     IntegrationHealthReport:
       type: object
-      required: [ok, firebase, nvidiaNim, cloudinary]
+      required: [ok, firebase, openRouter, cloudinary]
       properties:
         ok:
           type: boolean
-          description: True only when **firebase**, **nvidiaNim**, and **cloudinary** are all `ok`
+          description: True only when **firebase**, **openRouter**, and **cloudinary** are all `ok`
           example: true
         firebase:
           $ref: "#/components/schemas/DependencyCheck"
-        nvidiaNim:
+        openRouter:
           $ref: "#/components/schemas/DependencyCheck"
         cloudinary:
           $ref: "#/components/schemas/DependencyCheck"
@@ -540,7 +540,7 @@ components:
       description: |
         Success terminal event; mirrors the Realtime Database row under `uploads/{id}`.
         **`extractedText`** is the vision model’s reply (prompt-controlled; default templates request JSON arrays of questions/options/type).
-        **`finalText`** is Step’s reply (default templates request JSON including **`answer`** arrays per question).
+        **`finalText`** is the analyzing model reply (default templates request JSON including **`answer`** arrays per question).
       properties:
         id:
           type: string
@@ -650,7 +650,7 @@ components:
           description: Full instructions for the image text extraction stage (JSON extraction rules + how to read the monitor).
         analyzingTextPrompt:
           type: string
-          description: Full system instructions for Step (answer derivation + JSON shape including `answer`).
+          description: Full system instructions for final text (answer derivation + JSON shape including `answer`).
 
     PromptUpdateRequest:
       type: object

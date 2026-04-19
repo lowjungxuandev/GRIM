@@ -6,7 +6,7 @@ const required = {
   GOOGLE_APPLICATION_CREDENTIALS: "/path/cred.json",
   FIREBASE_PROJECT_ID: "proj",
   FIREBASE_DATABASE_URL: "https://proj.firebaseio.com",
-  NVAPI_KEY: "nv-key"
+  OPENROUTER_API_KEY: "openrouter-key"
 } as const;
 
 describe("loadServerEnv", () => {
@@ -16,10 +16,10 @@ describe("loadServerEnv", () => {
       vi.stubEnv(k, v);
     }
     for (const key of [
-      "IMAGE_EXTRACT_PROVIDER",
       "OPENAI_API_KEY",
-      "OPENROUTER_API_KEY",
-      "OPENROUTER_IMAGE_MODEL"
+      "OPENROUTER_MODEL",
+      "OPENROUTER_IMAGE_MODEL",
+      "NVAPI_KEY"
     ]) {
       vi.stubEnv(key, "");
       delete process.env[key];
@@ -47,24 +47,27 @@ describe("loadServerEnv", () => {
   });
 
   it("throws when a required env var is missing", () => {
-    vi.stubEnv("NVAPI_KEY", "");
-    delete process.env.NVAPI_KEY;
-    expect(() => loadServerEnv()).toThrow(/Missing required env var NVAPI_KEY/);
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    delete process.env.OPENROUTER_API_KEY;
+    expect(() => loadServerEnv()).toThrow(/Missing required env var OPENROUTER_API_KEY/);
   });
 
-  it("parses image extraction provider options", () => {
-    vi.stubEnv("IMAGE_EXTRACT_PROVIDER", "openrouter");
+  it("parses OpenRouter model options", () => {
     vi.stubEnv("OPENROUTER_API_KEY", "openrouter-key");
+    vi.stubEnv("OPENROUTER_MODEL", "openrouter/auto");
     vi.stubEnv("OPENROUTER_IMAGE_MODEL", "openrouter/free");
     const env = loadServerEnv();
-    expect(env.IMAGE_EXTRACT_PROVIDER).toBe("openrouter");
     expect(env.OPENROUTER_API_KEY).toBe("openrouter-key");
+    expect(env.OPENROUTER_MODEL).toBe("openrouter/auto");
     expect(env.OPENROUTER_IMAGE_MODEL).toBe("openrouter/free");
   });
 
-  it("throws when image extraction provider is invalid", () => {
-    vi.stubEnv("IMAGE_EXTRACT_PROVIDER", "bad");
-    expect(() => loadServerEnv()).toThrow(/Invalid IMAGE_EXTRACT_PROVIDER/);
+  it("keeps old provider keys optional when present", () => {
+    vi.stubEnv("OPENAI_API_KEY", "openai-key");
+    vi.stubEnv("NVAPI_KEY", "nv-key");
+    const env = loadServerEnv();
+    expect(env.OPENAI_API_KEY).toBe("openai-key");
+    expect(env.NVAPI_KEY).toBe("nv-key");
   });
 
   it("returns optional vars when set and undefined when blank", () => {
@@ -77,7 +80,7 @@ describe("loadServerEnv", () => {
     expect(env.GRIM_FCM_TOPIC).toBeUndefined();
     expect(env.GRIM_PROMPTS_DIR).toBe("/tmp/prompts");
     expect(env.GRIM_PROMPT_ADMIN_SECRET).toBeUndefined();
-    expect(env.IMAGE_EXTRACT_PROVIDER).toBeUndefined();
     expect(env.OPENAI_API_KEY).toBeUndefined();
+    expect(env.NVAPI_KEY).toBeUndefined();
   });
 });

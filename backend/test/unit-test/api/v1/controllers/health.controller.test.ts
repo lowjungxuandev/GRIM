@@ -8,7 +8,7 @@ function report(partial: Partial<HealthReport> & Pick<HealthReport, "ok">): Heal
   return {
     ok: partial.ok,
     firebase: partial.firebase ?? dep,
-    nvidiaNim: partial.nvidiaNim ?? dep,
+    openRouter: partial.openRouter ?? dep,
     cloudinary: partial.cloudinary ?? dep
   };
 }

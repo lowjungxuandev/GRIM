@@ -19,7 +19,7 @@ Server runs on `PORT` (default `3001`).
 npm test
 ```
 
-Vitest loads **`backend/.env` first** (`test/setup-env.ts`). **Configure `.env` before you run tests** (same steps as [Setup](#setup): copy `.env.example` to `.env` and fill every required value). Several suites exercise Cloudinary, Firebase Admin (Realtime Database and FCM topic messaging), OpenAI, and the NVIDIA Integrate API against your real credentials; without a complete `.env`, those tests will fail with authentication or network errors from the vendors. **Library integration tests** under **`test/unit-test/libs/`** do not mock storage or the database—they create real rows/uploads and **must delete that test data** (see **`docs/code-rules/unit-test-rules.md`**).
+Vitest loads **`backend/.env` first** (`test/setup-env.ts`). **Configure `.env` before you run tests** (same steps as [Setup](#setup): copy `.env.example` to `.env` and fill every required value). Several suites exercise Cloudinary, Firebase Admin (Realtime Database and FCM topic messaging), and OpenRouter against your real credentials; without a complete `.env`, those tests will fail with authentication or network errors from the vendors. **Library integration tests** under **`test/unit-test/libs/`** do not mock storage or the database—they create real rows/uploads and **must delete that test data** (see **`docs/code-rules/unit-test-rules.md`**).
 
 Required environment variables:
 
@@ -27,14 +27,14 @@ Required environment variables:
 - `GOOGLE_APPLICATION_CREDENTIALS`
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_DATABASE_URL`
-- `NVAPI_KEY`
+- `OPENROUTER_API_KEY`
 
 Optional:
 
-- `IMAGE_EXTRACT_PROVIDER` — `openai` (default) or `openrouter`
-- `OPENAI_API_KEY` — required when `IMAGE_EXTRACT_PROVIDER` is unset or `openai`
-- `OPENROUTER_API_KEY` — required when `IMAGE_EXTRACT_PROVIDER=openrouter`
-- `OPENROUTER_IMAGE_MODEL` — OpenRouter model/router for image extraction (default `openrouter/free`)
+- `OPENROUTER_MODEL` — OpenRouter model/router for both LLM stages (default `openrouter/free`)
+- `OPENROUTER_IMAGE_MODEL` — legacy alias used when `OPENROUTER_MODEL` is unset
+- `OPENAI_API_KEY` — accepted for local compatibility, not used at runtime
+- `NVAPI_KEY` — accepted for local compatibility, not used at runtime
 - `GRIM_FCM_TOPIC` — FCM topic for completion broadcasts (default `grim_new_result`)
 
 ### API
@@ -42,7 +42,7 @@ Optional:
 - `GET /docs` — Scalar API Reference UI (loads `openapi.yaml` from this server)
 - `GET /openapi.yaml` — OpenAPI 3 spec (health, import, export)
 - `GET /health`
-  - integration checks (Firebase Realtime Database, NVIDIA NIM, Cloudinary); **200** or **503**; JSON matches OpenAPI schema `IntegrationHealthReport`
+  - integration checks (Firebase Realtime Database, OpenRouter, Cloudinary); **200** or **503**; JSON matches OpenAPI schema `IntegrationHealthReport`
 - `POST /api/v1/import`
   - accepts `multipart/form-data` with exactly one file part named **`image`** (e.g. `<input name="image" type="file">`)
   - **curl:** use **`-F` / `--form`** and **do not** set `Content-Type` yourself — curl must add `boundary=…`. Use one part type, e.g. **`-F 'image=@photo.jpg;type=image/jpeg'`** (not a comma-separated list of MIME types)
@@ -52,7 +52,7 @@ Optional:
 - `GET /api/v1/export`
   - optional `page` (default 1), optional `limit` (default 20, max 50)
   - returns `200` paginated JSON (`data`, `page`, `limit`, `is_next`); newest first by `createdAt`; completed rows add `finalText`, `imageUrl`, `updatedAt`; failed rows add `errorMessage`, `updatedAt`
-- `GET /api/v1/prompts`, `PUT /api/v1/prompts` — read or overwrite extract / Step prompt templates (`backend/prompts/*.txt` by default; optional `GRIM_PROMPTS_DIR`, `GRIM_PROMPT_ADMIN_SECRET`). **PUT** accepts **`multipart/form-data`** with file or text fields **`extract_text`** and **`analyzing_text`**, or **`application/json`** with **`extractTextPrompt`** / **`analyzingTextPrompt`**.
+- `GET /api/v1/prompts`, `PUT /api/v1/prompts` — read or overwrite extract / analyzing prompt templates (`backend/prompts/*.txt` by default; optional `GRIM_PROMPTS_DIR`, `GRIM_PROMPT_ADMIN_SECRET`). **PUT** accepts **`multipart/form-data`** with file or text fields **`extract_text`** and **`analyzing_text`**, or **`application/json`** with **`extractTextPrompt`** / **`analyzingTextPrompt`**.
 
 ### Docs
 
@@ -61,5 +61,4 @@ Reference docs used to design the current implementation and future follow-up wo
 - **`docs/dependencies/`** — vendor integration notes (Cloudinary, NVIDIA, Scalar, Firebase); start at [`docs/dependencies/README.md`](../docs/dependencies/README.md).
 - Repository **`docs/`** (top level): `workflow.md` (target end-to-end backend flow), `specification.md`, `testing-plan.md`, plus `code-rules/`, `instructions/`, `design/`.
 
-The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, and NVIDIA Step into **`backend/src/`**. Image text extraction is currently a provider slot in the import pipeline. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
-The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, configurable OpenAI/OpenRouter image text extraction, and NVIDIA Step into **`backend/src/`**. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
+The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, and OpenRouter-backed LLM stages into **`backend/src/`**. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.

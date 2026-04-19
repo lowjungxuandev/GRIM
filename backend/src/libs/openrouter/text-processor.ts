@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { ImageTextExtractor } from "../../api/v1/model/services.model";
+import type { FinalTextBuilder, ImageTextExtractor } from "../../api/v1/model/services.model";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const OPENROUTER_DEFAULT_IMAGE_MODEL = "openrouter/free";
@@ -9,13 +9,18 @@ type OpenRouterChatClient = {
     completions: {
       create(input: {
         model: string;
-        messages: Array<{
-          role: "user";
-          content: Array<
-            | { type: "text"; text: string }
-            | { type: "image_url"; image_url: { url: string } }
-          >;
-        }>;
+        messages: Array<
+          | { role: "system"; content: string }
+          | {
+              role: "user";
+              content:
+                | string
+                | Array<
+                    | { type: "text"; text: string }
+                    | { type: "image_url"; image_url: { url: string } }
+                  >;
+            }
+        >;
         max_tokens: number;
         temperature: number;
       }): Promise<{
@@ -25,13 +30,14 @@ type OpenRouterChatClient = {
   };
 };
 
-export class OpenRouterImageTextExtractor implements ImageTextExtractor {
+export class OpenRouterTextProcessor implements ImageTextExtractor, FinalTextBuilder {
   private readonly client: OpenRouterChatClient;
 
   constructor(
     apiKey: string,
     private readonly model: string,
     private readonly getExtractPromptText: () => string,
+    private readonly getAnalyzingSystemPrompt: () => string,
     client: OpenRouterChatClient = new OpenAI({
       apiKey,
       baseURL: OPENROUTER_BASE_URL
@@ -52,6 +58,23 @@ export class OpenRouterImageTextExtractor implements ImageTextExtractor {
             { type: "text", text: this.getExtractPromptText().trimEnd() },
             { type: "image_url", image_url: { url: dataUrl } }
           ]
+        }
+      ],
+      max_tokens: 4096,
+      temperature: 0.15
+    });
+
+    return normalizeAssistantContent(response.choices?.[0]?.message?.content);
+  }
+
+  async buildFinalText(extractedText: string): Promise<string> {
+    const response = await this.client.chat.completions.create({
+      model: this.model,
+      messages: [
+        { role: "system", content: this.getAnalyzingSystemPrompt().trimEnd() },
+        {
+          role: "user",
+          content: extractedText
         }
       ],
       max_tokens: 4096,

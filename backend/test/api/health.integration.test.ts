@@ -11,7 +11,7 @@ describe("GET /health (HTTP integration)", () => {
     expect(res.body).toMatchObject({
       ok: true,
       firebase: { ok: true, latencyMs: expect.any(Number) },
-      nvidiaNim: { ok: true, latencyMs: expect.any(Number) },
+      openRouter: { ok: true, latencyMs: expect.any(Number) },
       cloudinary: { ok: true, latencyMs: expect.any(Number) }
     });
   });

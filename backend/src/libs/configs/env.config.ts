@@ -4,11 +4,11 @@ export type ServerEnv = {
   GOOGLE_APPLICATION_CREDENTIALS: string;
   FIREBASE_PROJECT_ID: string;
   FIREBASE_DATABASE_URL: string;
-  IMAGE_EXTRACT_PROVIDER?: "openai" | "openrouter";
-  OPENAI_API_KEY?: string;
-  OPENROUTER_API_KEY?: string;
+  OPENROUTER_API_KEY: string;
+  OPENROUTER_MODEL?: string;
   OPENROUTER_IMAGE_MODEL?: string;
-  NVAPI_KEY: string;
+  OPENAI_API_KEY?: string;
+  NVAPI_KEY?: string;
   /** Optional URL of a Scalar-hosted API Reference; local spec is always `GET /openapi.yaml`. */
   SCALAR_DOCS_URL?: string;
   /**
@@ -34,27 +34,16 @@ export function loadServerEnv(): ServerEnv {
     GOOGLE_APPLICATION_CREDENTIALS: readRequiredEnv("GOOGLE_APPLICATION_CREDENTIALS"),
     FIREBASE_PROJECT_ID: readRequiredEnv("FIREBASE_PROJECT_ID"),
     FIREBASE_DATABASE_URL: readRequiredEnv("FIREBASE_DATABASE_URL"),
-    IMAGE_EXTRACT_PROVIDER: readImageExtractProvider(),
-    OPENAI_API_KEY: readOptionalEnv("OPENAI_API_KEY"),
-    OPENROUTER_API_KEY: readOptionalEnv("OPENROUTER_API_KEY"),
+    OPENROUTER_API_KEY: readRequiredEnv("OPENROUTER_API_KEY"),
+    OPENROUTER_MODEL: readOptionalEnv("OPENROUTER_MODEL"),
     OPENROUTER_IMAGE_MODEL: readOptionalEnv("OPENROUTER_IMAGE_MODEL"),
-    NVAPI_KEY: readRequiredEnv("NVAPI_KEY"),
+    OPENAI_API_KEY: readOptionalEnv("OPENAI_API_KEY"),
+    NVAPI_KEY: readOptionalEnv("NVAPI_KEY"),
     SCALAR_DOCS_URL: readOptionalEnv("SCALAR_DOCS_URL"),
     GRIM_FCM_TOPIC: readOptionalEnv("GRIM_FCM_TOPIC"),
     GRIM_PROMPTS_DIR: readOptionalEnv("GRIM_PROMPTS_DIR"),
     GRIM_PROMPT_ADMIN_SECRET: readOptionalEnv("GRIM_PROMPT_ADMIN_SECRET")
   };
-}
-
-function readImageExtractProvider(): "openai" | "openrouter" | undefined {
-  const value = readOptionalEnv("IMAGE_EXTRACT_PROVIDER");
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === "openai" || value === "openrouter") {
-    return value;
-  }
-  throw new Error(`Invalid IMAGE_EXTRACT_PROVIDER: ${value}`);
 }
 
 function readOptionalEnv(name: string): string | undefined {
