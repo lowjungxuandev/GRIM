@@ -112,4 +112,4 @@ The provider lives under `backend/src/libs/openai/`:
 
 - `gpt-4o-image-text-extractor.ts` implements `ImageTextExtractor`.
 
-That keeps the existing `ImportService` dependency contract unchanged and makes provider switching a server composition concern in `backend/src/server.ts`.
+That keeps the existing `ImportService` dependency contract unchanged and makes provider switching a server composition concern in `backend/src/server.ts`. OpenRouter is implemented as a separate compatible provider in `backend/src/libs/openrouter/image-text-extractor.ts`.

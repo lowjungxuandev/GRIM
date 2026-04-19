@@ -6,7 +6,6 @@ const required = {
   GOOGLE_APPLICATION_CREDENTIALS: "/path/cred.json",
   FIREBASE_PROJECT_ID: "proj",
   FIREBASE_DATABASE_URL: "https://proj.firebaseio.com",
-  OPENAI_API_KEY: "openai-key",
   NVAPI_KEY: "nv-key"
 } as const;
 
@@ -15,6 +14,15 @@ describe("loadServerEnv", () => {
     vi.unstubAllEnvs();
     for (const [k, v] of Object.entries(required)) {
       vi.stubEnv(k, v);
+    }
+    for (const key of [
+      "IMAGE_EXTRACT_PROVIDER",
+      "OPENAI_API_KEY",
+      "OPENROUTER_API_KEY",
+      "OPENROUTER_IMAGE_MODEL"
+    ]) {
+      vi.stubEnv(key, "");
+      delete process.env[key];
     }
   });
 
@@ -44,6 +52,21 @@ describe("loadServerEnv", () => {
     expect(() => loadServerEnv()).toThrow(/Missing required env var NVAPI_KEY/);
   });
 
+  it("parses image extraction provider options", () => {
+    vi.stubEnv("IMAGE_EXTRACT_PROVIDER", "openrouter");
+    vi.stubEnv("OPENROUTER_API_KEY", "openrouter-key");
+    vi.stubEnv("OPENROUTER_IMAGE_MODEL", "openrouter/free");
+    const env = loadServerEnv();
+    expect(env.IMAGE_EXTRACT_PROVIDER).toBe("openrouter");
+    expect(env.OPENROUTER_API_KEY).toBe("openrouter-key");
+    expect(env.OPENROUTER_IMAGE_MODEL).toBe("openrouter/free");
+  });
+
+  it("throws when image extraction provider is invalid", () => {
+    vi.stubEnv("IMAGE_EXTRACT_PROVIDER", "bad");
+    expect(() => loadServerEnv()).toThrow(/Invalid IMAGE_EXTRACT_PROVIDER/);
+  });
+
   it("returns optional vars when set and undefined when blank", () => {
     vi.stubEnv("SCALAR_DOCS_URL", " https://docs.example ");
     vi.stubEnv("GRIM_FCM_TOPIC", "");
@@ -54,5 +77,7 @@ describe("loadServerEnv", () => {
     expect(env.GRIM_FCM_TOPIC).toBeUndefined();
     expect(env.GRIM_PROMPTS_DIR).toBe("/tmp/prompts");
     expect(env.GRIM_PROMPT_ADMIN_SECRET).toBeUndefined();
+    expect(env.IMAGE_EXTRACT_PROVIDER).toBeUndefined();
+    expect(env.OPENAI_API_KEY).toBeUndefined();
   });
 });

@@ -27,11 +27,14 @@ Required environment variables:
 - `GOOGLE_APPLICATION_CREDENTIALS`
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_DATABASE_URL`
-- `OPENAI_API_KEY`
 - `NVAPI_KEY`
 
 Optional:
 
+- `IMAGE_EXTRACT_PROVIDER` — `openai` (default) or `openrouter`
+- `OPENAI_API_KEY` — required when `IMAGE_EXTRACT_PROVIDER` is unset or `openai`
+- `OPENROUTER_API_KEY` — required when `IMAGE_EXTRACT_PROVIDER=openrouter`
+- `OPENROUTER_IMAGE_MODEL` — OpenRouter model/router for image extraction (default `openrouter/free`)
 - `GRIM_FCM_TOPIC` — FCM topic for completion broadcasts (default `grim_new_result`)
 
 ### API
@@ -59,4 +62,4 @@ Reference docs used to design the current implementation and future follow-up wo
 - Repository **`docs/`** (top level): `workflow.md` (target end-to-end backend flow), `specification.md`, `testing-plan.md`, plus `code-rules/`, `instructions/`, `design/`.
 
 The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, and NVIDIA Step into **`backend/src/`**. Image text extraction is currently a provider slot in the import pipeline. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
-The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, OpenAI GPT-4o image text extraction, and NVIDIA Step into **`backend/src/`**. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
+The v1 backend wires Cloudinary, Firebase Admin / Realtime Database, configurable OpenAI/OpenRouter image text extraction, and NVIDIA Step into **`backend/src/`**. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.

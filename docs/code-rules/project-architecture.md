@@ -32,6 +32,7 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 | | `libs/firebase/realtime.ts` | `getRealtimeDb`, `FirebaseUploadRepository` |
 | | `libs/firebase/fcm.ts` | `FirebaseNotifier`, default topic constant |
 | OpenAI | `libs/openai/gpt-4o-image-text-extractor.ts` | GPT-4o image text extraction |
+| OpenRouter | `libs/openrouter/image-text-extractor.ts` | OpenRouter image text extraction |
 | NVIDIA | `libs/nvidia/api.client.ts` | Shared chat HTTP and response normalization |
 | | `libs/nvidia/step-3.5-flash.ts` | Step final text |
 | Cloudinary | `libs/cloudinary/utils.ts` | Upload store, mapping, ping used by health |

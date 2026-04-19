@@ -13,6 +13,11 @@ import { FirebaseUploadRepository, getRealtimeDb } from "./libs/firebase/realtim
 import { GrimPromptSettings } from "./libs/utils/prompt.util";
 import { NvidiaStepFinalTextBuilder } from "./libs/nvidia/step-3.5-flash";
 import { OpenAIGpt4oImageTextExtractor } from "./libs/openai/gpt-4o-image-text-extractor";
+import type { ImageTextExtractor } from "./api/v1/model/services.model";
+import {
+  OPENROUTER_DEFAULT_IMAGE_MODEL,
+  OpenRouterImageTextExtractor
+} from "./libs/openrouter/image-text-extractor";
 
 function createProductionDependencies(env: ServerEnv): AppDependencies {
   const promptsDir = env.GRIM_PROMPTS_DIR ?? path.join(process.cwd(), "prompts");
@@ -23,9 +28,7 @@ function createProductionDependencies(env: ServerEnv): AppDependencies {
   const exportService = new ExportService(uploadRepository);
   const importService = new ImportService({
     uploadRepository,
-    textExtractor: new OpenAIGpt4oImageTextExtractor(env.OPENAI_API_KEY, () =>
-      promptSettings.getExtractTextPrompt()
-    ),
+    textExtractor: createImageTextExtractor(env, promptSettings),
     finalTextBuilder: new NvidiaStepFinalTextBuilder(env.NVAPI_KEY, () => promptSettings.getAnalyzingTextPrompt()),
     imageStorage: new CloudinaryImageStore(),
     notifier: new FirebaseNotifier(firebaseApp, env.GRIM_FCM_TOPIC ?? DEFAULT_FCM_BROADCAST_TOPIC),
@@ -40,6 +43,27 @@ function createProductionDependencies(env: ServerEnv): AppDependencies {
     promptSettings,
     promptAdminSecret: env.GRIM_PROMPT_ADMIN_SECRET
   };
+}
+
+function createImageTextExtractor(env: ServerEnv, promptSettings: GrimPromptSettings): ImageTextExtractor {
+  const provider = env.IMAGE_EXTRACT_PROVIDER ?? "openai";
+  if (provider === "openrouter") {
+    if (!env.OPENROUTER_API_KEY) {
+      throw new Error("Missing required env var OPENROUTER_API_KEY");
+    }
+    return new OpenRouterImageTextExtractor(
+      env.OPENROUTER_API_KEY,
+      env.OPENROUTER_IMAGE_MODEL ?? OPENROUTER_DEFAULT_IMAGE_MODEL,
+      () => promptSettings.getExtractTextPrompt()
+    );
+  }
+
+  if (!env.OPENAI_API_KEY) {
+    throw new Error("Missing required env var OPENAI_API_KEY");
+  }
+  return new OpenAIGpt4oImageTextExtractor(env.OPENAI_API_KEY, () =>
+    promptSettings.getExtractTextPrompt()
+  );
 }
 
 const env = loadServerEnv();
