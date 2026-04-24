@@ -13,7 +13,7 @@ Endpoints to test:
 
 `POST /api/v1/import` returns **200** with **`text/event-stream`**. The response body is Server-Sent Events: synthetic status lines (`extracting_text`, `analyzing_text`), then a terminal JSON object (success row or `error`).
 
-The handler must wait for **Cloudinary**, OpenRouter image text extraction, OpenRouter final text generation, **Realtime Database**, and (on success) **FCM** as part of that same request (stream ends after those steps).
+The handler must wait for **Cloudinary**, configured extract-stage LLM image text extraction, configured final-stage LLM text generation, **Realtime Database**, and (on success) **FCM** as part of that same request (stream ends after those steps).
 
 ## Unit tests
 
@@ -21,7 +21,7 @@ The handler must wait for **Cloudinary**, OpenRouter image text extraction, Open
 - capture service/controller behavior for `POST /api/v1/capture`
 - request validation for `GET /api/v1/export` (for example invalid `limit`)
 - image text extraction provider behavior
-- OpenRouter final text provider behavior
+- final text provider behavior
 - Realtime DB read and write helpers
 - FCM topic broadcasts (`broadcastNewResult`, `broadcastExportRefresh`) are invoked after a successful pipeline
 - FCM capture broadcast (`broadcastCaptureRequest`) is invoked by the capture service
@@ -50,6 +50,6 @@ The backend uses Vitest and Supertest (`backend/package.json`).
 
 ---
 
-**Updated:** 2026-04-19
+**Updated:** 2026-04-24
 **Applies to:** grim backend tests (`backend/test/`, `backend/package.json` -> version `0.1.0`)
-**Doc version:** 2
+**Doc version:** 3

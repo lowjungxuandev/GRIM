@@ -1,24 +1,46 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadServerEnv } from "../../../../src/libs/configs/env.config";
+import {
+  DEFAULT_OPENROUTER_BASE_URL,
+  DEFAULT_OPENROUTER_MODEL,
+  loadServerEnv
+} from "../../../../src/libs/configs/env.config";
 
-const required = {
+const requiredBase = {
   CLOUDINARY_URL: "cloudinary://x",
   GOOGLE_APPLICATION_CREDENTIALS: "/path/cred.json",
   FIREBASE_PROJECT_ID: "proj",
-  FIREBASE_DATABASE_URL: "https://proj.firebaseio.com",
-  OPENROUTER_API_KEY: "openrouter-key"
+  FIREBASE_DATABASE_URL: "https://proj.firebaseio.com"
 } as const;
+
+const llmKeys = [
+  "LLM_PROVIDER",
+  "LLM_API_KEY",
+  "LLM_MODEL",
+  "LLM_BASE_URL",
+  "EXTRACT_LLM_PROVIDER",
+  "EXTRACT_LLM_API_KEY",
+  "EXTRACT_LLM_MODEL",
+  "EXTRACT_LLM_BASE_URL",
+  "FINAL_LLM_PROVIDER",
+  "FINAL_LLM_API_KEY",
+  "FINAL_LLM_MODEL",
+  "FINAL_LLM_BASE_URL",
+  "OPENROUTER_API_KEY",
+  "OPENROUTER_MODEL",
+  "OPENROUTER_IMAGE_MODEL"
+] as const;
 
 describe("loadServerEnv", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
-    for (const [k, v] of Object.entries(required)) {
+    for (const [k, v] of Object.entries(requiredBase)) {
       vi.stubEnv(k, v);
     }
-    for (const key of ["OPENROUTER_MODEL", "OPENROUTER_IMAGE_MODEL"]) {
+    for (const key of llmKeys) {
       vi.stubEnv(key, "");
       delete process.env[key];
     }
+    vi.stubEnv("OPENROUTER_API_KEY", "openrouter-key");
   });
 
   afterEach(() => {
@@ -44,17 +66,142 @@ describe("loadServerEnv", () => {
   it("throws when a required env var is missing", () => {
     vi.stubEnv("OPENROUTER_API_KEY", "");
     delete process.env.OPENROUTER_API_KEY;
-    expect(() => loadServerEnv()).toThrow(/Missing required env var OPENROUTER_API_KEY/);
+    expect(() => loadServerEnv()).toThrow(/Missing required env var EXTRACT_LLM_API_KEY/);
   });
 
-  it("parses OpenRouter model options", () => {
-    vi.stubEnv("OPENROUTER_API_KEY", "openrouter-key");
+  it("accepts Firebase credentials from base64 when the local file path is unset", () => {
+    vi.stubEnv("GOOGLE_APPLICATION_CREDENTIALS", "");
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    vi.stubEnv(
+      "FIREBASE_SERVICE_ACCOUNT_JSON_BASE64",
+      Buffer.from(
+        JSON.stringify({
+          project_id: "proj",
+          client_email: "firebase-adminsdk@example.test",
+          private_key: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n"
+        }),
+        "utf8"
+      ).toString("base64")
+    );
+
+    const env = loadServerEnv();
+    expect(env.GOOGLE_APPLICATION_CREDENTIALS).toBeUndefined();
+    expect(env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64).toBeDefined();
+  });
+
+  it("requires either a Firebase credentials path or base64 JSON", () => {
+    vi.stubEnv("GOOGLE_APPLICATION_CREDENTIALS", "");
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    vi.stubEnv("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64", "");
+    delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
+    expect(() => loadServerEnv()).toThrow(/Missing Firebase credentials env/);
+  });
+
+  it("defaults legacy OpenRouter config into both stage configs", () => {
+    const env = loadServerEnv();
+    expect(env.EXTRACT_LLM).toEqual({
+      provider: "openrouter",
+      apiKey: "openrouter-key",
+      model: DEFAULT_OPENROUTER_MODEL,
+      baseURL: DEFAULT_OPENROUTER_BASE_URL
+    });
+    expect(env.FINAL_LLM).toEqual({
+      provider: "openrouter",
+      apiKey: "openrouter-key",
+      model: DEFAULT_OPENROUTER_MODEL,
+      baseURL: DEFAULT_OPENROUTER_BASE_URL
+    });
+  });
+
+  it("maps legacy OpenRouter model aliases into both stage configs", () => {
     vi.stubEnv("OPENROUTER_MODEL", "openrouter/auto");
     vi.stubEnv("OPENROUTER_IMAGE_MODEL", "openrouter/free");
     const env = loadServerEnv();
-    expect(env.OPENROUTER_API_KEY).toBe("openrouter-key");
-    expect(env.OPENROUTER_MODEL).toBe("openrouter/auto");
-    expect(env.OPENROUTER_IMAGE_MODEL).toBe("openrouter/free");
+    expect(env.EXTRACT_LLM.model).toBe("openrouter/auto");
+    expect(env.FINAL_LLM.model).toBe("openrouter/auto");
+    expect(env.EXTRACT_LLM.baseURL).toBe(DEFAULT_OPENROUTER_BASE_URL);
+    expect(env.FINAL_LLM.baseURL).toBe(DEFAULT_OPENROUTER_BASE_URL);
+  });
+
+  it("uses shared LLM vars as defaults for both stages", () => {
+    vi.stubEnv("LLM_PROVIDER", "openai");
+    vi.stubEnv("LLM_API_KEY", "openai-key");
+    vi.stubEnv("LLM_MODEL", "gpt-5.2");
+    vi.stubEnv("LLM_BASE_URL", "https://example.test/v1");
+    vi.stubEnv("OPENROUTER_MODEL", "openrouter/auto");
+    const env = loadServerEnv();
+    expect(env.EXTRACT_LLM).toEqual({
+      provider: "openai",
+      apiKey: "openai-key",
+      model: "gpt-5.2",
+      baseURL: "https://example.test/v1"
+    });
+    expect(env.FINAL_LLM).toEqual({
+      provider: "openai",
+      apiKey: "openai-key",
+      model: "gpt-5.2",
+      baseURL: "https://example.test/v1"
+    });
+  });
+
+  it("lets one stage override the shared defaults", () => {
+    vi.stubEnv("LLM_PROVIDER", "openrouter");
+    vi.stubEnv("LLM_API_KEY", "router-key");
+    vi.stubEnv("LLM_MODEL", "openrouter/auto");
+    vi.stubEnv("FINAL_LLM_PROVIDER", "openai");
+    vi.stubEnv("FINAL_LLM_API_KEY", "openai-key");
+    vi.stubEnv("FINAL_LLM_MODEL", "gpt-5.2");
+    const env = loadServerEnv();
+    expect(env.EXTRACT_LLM).toEqual({
+      provider: "openrouter",
+      apiKey: "router-key",
+      model: "openrouter/auto",
+      baseURL: DEFAULT_OPENROUTER_BASE_URL
+    });
+    expect(env.FINAL_LLM).toEqual({
+      provider: "openai",
+      apiKey: "openai-key",
+      model: "gpt-5.2",
+      baseURL: undefined
+    });
+  });
+
+  it("does not inherit shared model when a stage changes provider", () => {
+    vi.stubEnv("LLM_PROVIDER", "openrouter");
+    vi.stubEnv("LLM_API_KEY", "router-key");
+    vi.stubEnv("LLM_MODEL", "openrouter/auto");
+    vi.stubEnv("FINAL_LLM_PROVIDER", "openai");
+    vi.stubEnv("FINAL_LLM_API_KEY", "openai-key");
+    expect(() => loadServerEnv()).toThrow(/Missing required env var FINAL_LLM_MODEL/);
+  });
+
+  it("requires an explicit base URL for a stage using NVIDIA NIM", () => {
+    vi.stubEnv("EXTRACT_LLM_PROVIDER", "nim");
+    vi.stubEnv("EXTRACT_LLM_API_KEY", "nim-key");
+    vi.stubEnv("EXTRACT_LLM_MODEL", "nvidia/llama-3.1-nemotron-nano-vl-8b-v1");
+    expect(() => loadServerEnv()).toThrow(
+      /Missing required env var EXTRACT_LLM_BASE_URL when EXTRACT_LLM_PROVIDER=nim/
+    );
+  });
+
+  it("accepts stage-specific NVIDIA NIM config when the base URL is set", () => {
+    vi.stubEnv("EXTRACT_LLM_PROVIDER", "nim");
+    vi.stubEnv("EXTRACT_LLM_API_KEY", "nim-key");
+    vi.stubEnv("EXTRACT_LLM_MODEL", "nvidia/llama-3.1-nemotron-nano-vl-8b-v1");
+    vi.stubEnv("EXTRACT_LLM_BASE_URL", "http://localhost:8000/v1");
+    const env = loadServerEnv();
+    expect(env.EXTRACT_LLM).toEqual({
+      provider: "nim",
+      apiKey: "nim-key",
+      model: "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+      baseURL: "http://localhost:8000/v1"
+    });
+    expect(env.FINAL_LLM.provider).toBe("openrouter");
+  });
+
+  it("rejects unknown providers", () => {
+    vi.stubEnv("EXTRACT_LLM_PROVIDER", "other");
+    expect(() => loadServerEnv()).toThrow(/Invalid LLM_PROVIDER/);
   });
 
   it("returns optional vars when set and undefined when blank", () => {

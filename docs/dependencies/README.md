@@ -5,7 +5,7 @@ Implementation-oriented documentation for **external products and SDKs** used by
 | Topic | Document |
 |--------|----------|
 | Cloudinary | [cloudinary-implementation.md](./cloudinary-implementation.md) |
-| OpenRouter via OpenAI SDK | [openrouter-implementation.md](./openrouter-implementation.md) |
+| OpenAI-compatible LLM providers via OpenAI SDK | [openai-compatible-llm-implementation.md](./openai-compatible-llm-implementation.md) |
 | Scalar (API Reference UI) | [scalar-implementation.md](./scalar-implementation.md) |
 | Firebase (CLI, Admin, RTDB, FCM, FlutterFire) | [firebase/README.md](./firebase/README.md) (see folder) |
 
@@ -13,6 +13,6 @@ Repo-wide flow and API contract: **`../workflow.md`**, **`../specification.md`**
 
 ---
 
-**Updated:** 2026-04-19
+**Updated:** 2026-04-24
 **Applies to:** grim repository `docs/dependencies/`
-**Doc version:** 2
+**Doc version:** 3

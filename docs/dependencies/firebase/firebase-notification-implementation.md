@@ -53,6 +53,8 @@ export FIREBASE_PROJECT_ID="your-project-id"
 export FIREBASE_DATABASE_URL="https://DATABASE_NAME.firebaseio.com"
 ```
 
+Hosted deployments can use **`FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`** instead of a filesystem path.
+
 The backend initializes one Firebase Admin app for both FCM and Realtime Database in `backend/src/libs/firebase/admin.ts`.
 
 ## Admin SDK send shape
@@ -93,9 +95,9 @@ The REST API requires OAuth2 authorization. The Admin SDK handles credential loa
 
 ---
 
-**Updated:** 2026-04-19
+**Updated:** 2026-04-24
 **Applies to:** grim backend FCM (`backend/src/libs/firebase/fcm.ts`, `backend/src/libs/utils/notification.util.ts`)
-**Doc version:** 2
+**Doc version:** 3
 **Upstream refs:**
 - https://firebase.google.com/docs/cloud-messaging/send/admin-sdk
 - https://firebase.google.com/docs/cloud-messaging/send-message

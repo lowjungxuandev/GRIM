@@ -1,6 +1,6 @@
 # Unit and integration test rules (backend)
 
-These rules apply to **`backend/test/`** (Vitest). Grim splits tests into three bands: **HTTP app integration** under **`test/api/`** (no vendors, no secrets), **API/unit tests** under **`test/unit-test/api/`** (pure or mocked), and **`src/libs` adapter tests** under **`test/unit-test/libs/`** (real Cloudinary, Firebase, OpenRouter where applicable, **`backend/.env`**).
+These rules apply to **`backend/test/`** (Vitest). Grim splits tests into three bands: **HTTP app integration** under **`test/api/`** (no vendors, no secrets), **API/unit tests** under **`test/unit-test/api/`** (pure or mocked), and **`src/libs` adapter tests** under **`test/unit-test/libs/`** (real Cloudinary, Firebase, and configured LLM provider checks where applicable, **`backend/.env`**).
 
 **Folder intent:** **`test/unit-test/libs/`** mirrors **`src/libs/`**; relative imports into **`src/`** use **`../../../../src/`** from a typical nested file. **`test/api/`** holds Supertest + **`createApp`** suites only—do not put them under **`test/unit-test/libs/`**.
 
@@ -23,7 +23,7 @@ These rules apply to **`backend/test/`** (Vitest). Grim splits tests into three 
   | Source | Test |
   |--------|------|
   | `src/libs/cloudinary/utils.ts` | `test/unit-test/libs/cloudinary/utils.test.ts` |
-  | `src/libs/openrouter/text-processor.ts` | `test/unit-test/libs/openrouter/text-processor.test.ts` |
+  | `src/libs/llm/text-processor.ts` | `test/unit-test/libs/llm/text-processor.test.ts` |
   | `src/libs/firebase/realtime.ts` | `test/unit-test/libs/firebase/realtime.test.ts` |
 
 - **HTTP app integration (Supertest + `createApp`)** — files under **`backend/test/api/`**, named **`*.integration.test.ts`**. Covers routes mounted from **`app.ts`**, global error JSON, stable middleware (e.g. **`OPTIONS /openapi.yaml`** CORS), **`GET /health`**, **`POST /api/v1/import`**, **`GET /api/v1/export`**, and **404** behavior. Use **Supertest** (already a dev dependency).
@@ -37,17 +37,17 @@ These rules apply to **`backend/test/`** (Vitest). Grim splits tests into three 
 
 ### 1. HTTP app integration (`test/api/*.integration.test.ts`, `test/test-utils.ts`, `test/in-memory-upload-repository.ts`)
 
-- **Goal:** Exercise routes, **`express.json`**, multer on import, **`wrapAsync`**, and the centralized error middleware **without** Cloudinary, Firebase, or OpenRouter unless you explicitly opt in.
+- **Goal:** Exercise routes, **`express.json`**, multer on import, **`wrapAsync`**, and the centralized error middleware **without** Cloudinary, Firebase, or a live LLM provider unless you explicitly opt in.
 - **How:** Build the app with **`createApp({ ... })`** from **`src/app.ts`**. Inject doubles: in-memory **`UploadRepository`**, a stable **`runHealthChecks`** returning **`HealthReport`**, **`silentLogger`**, stubbed **`ImportService`** (the **`ImportService` port** in **`api/v1/model/services.model.ts`**) and/or the **`ImportService`** class with stubbed **`ImportServiceDependencies`**, **`ExportService`** backed by the in-memory repo. See **`test/test-utils.ts`** (**`buildTestApp`**, **`createImportServiceWithStubbedPipeline`**).
 - **Do not** require **`backend/.env`** secrets for these tests. They should pass in CI with only Node + npm install.
 - **Commands:** **`npm run test:integration`** (scoped config). Avoid using the CLI filter **`vitest run test/api`** alone—it can also match paths under **`test/unit-test/api/`** (substring **`test/api`**). Prefer **`test:integration`** or list explicit files.
 
 ### 2. Library adapters (`test/unit-test/libs/**` mirroring `src/libs/**`)
 
-- **Goal:** Prove that adapter behavior for Cloudinary, Firebase Admin (Realtime Database + FCM), and OpenRouter still matches expectations for the code in **`src/libs/`**.
+- **Goal:** Prove that adapter behavior for Cloudinary, Firebase Admin (Realtime Database + FCM), and the OpenAI-compatible LLM layer still matches expectations for the code in **`src/libs/`**.
 - **How:** Call **`loadServerEnv()`** from **`libs/configs/env.config.ts`** after dotenv has run; use production-shaped APIs (upload, ping, RTDB writes, topic send, chat completion) with **reasonable timeouts** (Vitest defaults are too low for cold network calls—keep **`testTimeout` / `hookTimeout`** elevated in **`vitest.config.ts`** when needed).
 - **Cleanup (required):** **Always** remove or destroy data the test created—**`finally`** blocks are mandatory when writes can succeed before an assertion throws. Examples: **`cloudinary.uploader.destroy(public_id)`** after **`uploadImage`**; **`getDatabase(app).ref("uploads/" + id).remove()`** (or equivalent) after RTDB writes. Use **unique ids** so parallel workers do not collide. (See also **Storage and database** above.)
-- **Do not** mock **`cloudinary`**, **`firebase-admin/*`** (including the Realtime Database client), or **storage-shaped behavior** for these suites. Model-provider request-shape tests may inject an OpenRouter client double when they are validating pure request construction instead of live network behavior. Exceptions need a written note in the PR or docs.
+- **Do not** mock **`cloudinary`**, **`firebase-admin/*`** (including the Realtime Database client), or **storage-shaped behavior** for these suites. Model-provider request-shape tests may inject an OpenAI-compatible client double when they are validating pure request construction instead of live network behavior. Exceptions need a written note in the PR or docs.
 
 ### 3. Pure logic, ports, and env validation
 

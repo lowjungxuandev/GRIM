@@ -11,7 +11,7 @@ Authoritative request/response shapes: **`backend/openapi.yaml`** (served at `GE
 
 ## `GET /health`
 
-Integration checks (Firebase Realtime Database, OpenRouter, Cloudinary). Returns **200** when `ok` is true, **503** when `ok` is false. Response body matches OpenAPI schema **`IntegrationHealthReport`**.
+Integration checks (Firebase Realtime Database, extract/final LLM stage configs aggregated under `llm`, Cloudinary). Returns **200** when `ok` is true, **503** when `ok` is false. Response body matches OpenAPI schema **`IntegrationHealthReport`** with top-level keys `ok`, `firebase`, `llm`, and `cloudinary`.
 
 ## `POST /api/v1/capture`
 
@@ -23,7 +23,7 @@ Integration checks (Firebase Realtime Database, OpenRouter, Cloudinary). Returns
 
 - `multipart/form-data`, required field **`image`**
 - **200** with **`Content-Type: text/event-stream`** — Server-Sent Events until the pipeline finishes. Each `data:` line is JSON: first `{"status":"extracting_text"}`, then `{"status":"analyzing_text"}`, then either the success row (`id`, `createdAt`, `updatedAt`, `extractedText`, `finalText`, `imageUrl`, `cloudinaryPublicId`) or a terminal `{"error":{"code","message"}}`.
-- Pipeline order on the server: **Cloudinary** (image) → **OpenRouter** (image text extraction) → **OpenRouter** (final text) → **Realtime Database** (one write under `uploads/{id}`) → **FCM** topic signals only after a successful DB write.
+- Pipeline order on the server: **Cloudinary** (image) → **extract LLM config** (image text extraction) → **final LLM config** (final text) → **Realtime Database** (one write under `uploads/{id}`) → **FCM** topic signals only after a successful DB write.
 - Import success sends two receiver signals on topic `grim_new_result` by default: visible `kind: new_result`, `notificationType: notify`, `role: receiver`; silent `kind: export_refresh`, `notificationType: silent`, `role: receiver`, `url: /api/v1/export?page=1&limit=20`.
 
 Typical errors: **400**, **413**, **415**, **500** — codes and messages match OpenAPI `ErrorBody` examples.
@@ -41,6 +41,6 @@ Typical errors: **400**, **413**, **415**, **500** — codes and messages match 
 
 ---
 
-**Updated:** 2026-04-19
+**Updated:** 2026-04-24
 **Applies to:** grim backend API (`backend/openapi.yaml`, `backend/package.json` -> version `0.1.0`)
-**Doc version:** 2
+**Doc version:** 3

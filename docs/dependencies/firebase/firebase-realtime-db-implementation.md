@@ -23,7 +23,7 @@ npm i firebase-admin
 ## Initialize
 
 ```ts
-import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
+import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
 
 export function getFirebaseAdminApp() {
@@ -31,8 +31,13 @@ export function getFirebaseAdminApp() {
     return getApps()[0];
   }
 
+  const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
+  const credential = base64
+    ? cert(JSON.parse(Buffer.from(base64, "base64").toString("utf8")))
+    : applicationDefault();
+
   return initializeApp({
-    credential: applicationDefault(),
+    credential,
     projectId: process.env.FIREBASE_PROJECT_ID,
     databaseURL: process.env.FIREBASE_DATABASE_URL
   });
@@ -70,7 +75,9 @@ Why this is enough:
 - `finalText` and `imageUrl` are what the mobile client needs when the pipeline succeeds
 - `errorMessage` appears when the pipeline fails
 
-**When import writes:** `ImportService` does **not** touch Realtime Database until after **Cloudinary** (image), OpenRouter image text extraction, and OpenRouter final text generation have completed. It then performs a single **`set`** on `uploads/{id}` with the full success payload (or a single **`set`** with `errorMessage` if the pipeline failed). The client receives progress and the final row (or terminal error) over the same **HTTP 200** `text/event-stream` response before this write completes from the client’s perspective (the stream’s last `data:` line reflects the persisted outcome).
+**When import writes:** `ImportService` does **not** touch Realtime Database until after **Cloudinary** (image), configured LLM image text extraction, and configured LLM final text generation have completed. It then performs a single **`set`** on `uploads/{id}` with the full success payload (or a single **`set`** with `errorMessage` if the pipeline failed). The client receives progress and the final row (or terminal error) over the same **HTTP 200** `text/event-stream` response before this write completes from the client’s perspective (the stream’s last `data:` line reflects the persisted outcome).
+
+For hosted deploys such as Vercel, Grim can now read Firebase Admin credentials from **`FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`** instead of requiring a local file path in **`GOOGLE_APPLICATION_CREDENTIALS`**.
 
 ## Write data
 
@@ -151,9 +158,9 @@ After the deployed rules include this index, republish once; the warning should 
 
 ---
 
-**Updated:** 2026-04-19
+**Updated:** 2026-04-24
 **Applies to:** grim backend Realtime Database (`backend/src/libs/firebase/realtime.ts`, `backend/package.json` -> version `0.1.0`)
-**Doc version:** 2
+**Doc version:** 3
 **Upstream refs:**
 - https://firebase.google.com/docs/database/admin/start#node.js_1
 - https://firebase.google.com/docs/database/admin/structure-data

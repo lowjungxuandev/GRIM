@@ -5,3 +5,4 @@ dist
 
 # Firebase Admin SDK service account keys (secrets — never commit)
 *firebase-adminsdk*.json
+.vercel

@@ -25,7 +25,7 @@ servers:
 
 tags:
   - name: health
-    description: Firebase, OpenRouter, and Cloudinary readiness
+    description: Firebase, configured LLM provider, and Cloudinary readiness
   - name: import
     description: |
       Multipart image upload (`multipart/form-data`); the file part must be named **`image`**.
@@ -47,7 +47,8 @@ paths:
       summary: Integration health
       description: |
         Parallel checks: **Firebase** Realtime Database (`/.info/serverTimeOffset`),
-        **OpenRouter** models API with your API key, **Cloudinary** management ping.
+        **extract** and **final** LLM stage configs via the models API (aggregated into the single `llm` result field),
+        **Cloudinary** management ping.
 
         | HTTP | Meaning |
         |------|---------|
@@ -69,7 +70,7 @@ paths:
                     firebase:
                       ok: true
                       latencyMs: 24
-                    openRouter:
+                    llm:
                       ok: true
                       latencyMs: 156
                     cloudinary:
@@ -82,14 +83,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/IntegrationHealthReport"
               examples:
-                openRouterUnauthorized:
-                  summary: OpenRouter key rejected (API reachable)
+                llmUnauthorized:
+                  summary: LLM provider key rejected (API reachable)
                   value:
                     ok: false
                     firebase:
                       ok: true
                       latencyMs: 18
-                    openRouter:
+                    llm:
                       ok: false
                       latencyMs: 42
                       error: 401 Unauthorized
@@ -118,9 +119,9 @@ paths:
 
         When the pipeline **succeeds**, the server sends two receiver-targeted FCM **topic** messages on the configured topic. The visible message is `kind: new_result`, `notificationType: notify`, `role: receiver`. The silent message is `kind: export_refresh`, `notificationType: silent`, `role: receiver`, with `url: /api/v1/export?page=1&limit=20`. Topic defaults to **`grim_new_result`** (override with env `GRIM_FCM_TOPIC`). No FCM send on pipeline failure.
 
-        **LLM prompts (configurable):** the extract stage uses current **`extractTextPrompt`** with the uploaded image. The analyzing stage receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. Defaults ask for structured JSON (questions/options/type, then answers); **`extractedText`** and **`finalText`** in the success row are **opaque strings** returned by OpenRouter (often JSON). Change prompts with **`GET/PUT /api/v1/prompts`**.
+        **LLM prompts (configurable):** the extract stage uses current **`extractTextPrompt`** with the uploaded image. The analyzing stage receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. Defaults ask for structured JSON (questions/options/type, then answers); **`extractedText`** and **`finalText`** in the success row are **opaque strings** returned by the configured LLM providers (often JSON). The extract and final stages may use different provider configs. Change prompts with **`GET/PUT /api/v1/prompts`**.
 
-        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **OpenRouter** (image text extraction) → **OpenRouter** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then receiver FCM topic messages on success.
+        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **extract LLM config** (image text extraction) → **final LLM config** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then receiver FCM topic messages on success.
 
         Each SSE message is one `data:` line whose value is a single JSON object:
 
@@ -539,15 +540,15 @@ components:
 
     IntegrationHealthReport:
       type: object
-      required: [ok, firebase, openRouter, cloudinary]
+      required: [ok, firebase, llm, cloudinary]
       properties:
         ok:
           type: boolean
-          description: True only when **firebase**, **openRouter**, and **cloudinary** are all `ok`
+          description: True only when **firebase**, **llm**, and **cloudinary** are all `ok`
           example: true
         firebase:
           $ref: "#/components/schemas/DependencyCheck"
-        openRouter:
+        llm:
           $ref: "#/components/schemas/DependencyCheck"
         cloudinary:
           $ref: "#/components/schemas/DependencyCheck"

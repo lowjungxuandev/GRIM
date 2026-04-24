@@ -1,10 +1,7 @@
 import OpenAI from "openai";
 import type { FinalTextBuilder, ImageTextExtractor } from "../../api/v1/model/services.model";
 
-export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-export const OPENROUTER_DEFAULT_IMAGE_MODEL = "openrouter/free";
-
-type OpenRouterMessage =
+type OpenAICompatibleMessage =
   | { role: "system"; content: string }
   | {
       role: "user";
@@ -13,37 +10,48 @@ type OpenRouterMessage =
         | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
     };
 
-type OpenRouterChatResponse = {
+type OpenAICompatibleChatResponse = {
   choices?: Array<{ message?: { content?: unknown } }>;
 };
 
-type OpenRouterChatClient = {
+type OpenAICompatibleChatClient = {
   chat: {
     completions: {
       create(input: {
         model: string;
-        messages: OpenRouterMessage[];
+        messages: OpenAICompatibleMessage[];
         max_tokens: number;
         temperature: number;
-      }): Promise<OpenRouterChatResponse>;
+      }): Promise<OpenAICompatibleChatResponse>;
     };
   };
 };
 
-export class OpenRouterTextProcessor implements ImageTextExtractor, FinalTextBuilder {
-  private readonly client: OpenRouterChatClient;
+export type OpenAICompatibleTextProcessorOptions = {
+  apiKey: string;
+  model: string;
+  baseURL?: string;
+  getExtractPromptText: () => string;
+  getAnalyzingSystemPrompt: () => string;
+  client?: OpenAICompatibleChatClient;
+};
 
-  constructor(
-    apiKey: string,
-    private readonly model: string,
-    private readonly getExtractPromptText: () => string,
-    private readonly getAnalyzingSystemPrompt: () => string,
-    client: OpenRouterChatClient = new OpenAI({
-      apiKey,
-      baseURL: OPENROUTER_BASE_URL
-    })
-  ) {
-    this.client = client;
+export class OpenAICompatibleTextProcessor implements ImageTextExtractor, FinalTextBuilder {
+  private readonly client: OpenAICompatibleChatClient;
+  private readonly model: string;
+  private readonly getExtractPromptText: () => string;
+  private readonly getAnalyzingSystemPrompt: () => string;
+
+  constructor(options: OpenAICompatibleTextProcessorOptions) {
+    this.model = options.model;
+    this.getExtractPromptText = options.getExtractPromptText;
+    this.getAnalyzingSystemPrompt = options.getAnalyzingSystemPrompt;
+    this.client =
+      options.client ??
+      new OpenAI({
+        apiKey: options.apiKey,
+        ...(options.baseURL ? { baseURL: options.baseURL } : {})
+      });
   }
 
   async extractTextFromImage(imageBuffer: Buffer, imageMimeType: string): Promise<string> {

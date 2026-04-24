@@ -31,7 +31,7 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 | Firebase | `libs/firebase/admin.ts` | Admin app init from env |
 | | `libs/firebase/realtime.ts` | `getRealtimeDb`, `FirebaseUploadRepository` |
 | | `libs/firebase/fcm.ts` | `FirebaseNotifier`, default topic constant |
-| OpenRouter | `libs/openrouter/text-processor.ts` | OpenRouter image extraction and final text |
+| LLM | `libs/llm/text-processor.ts` | OpenAI-compatible image extraction and final text |
 | Cloudinary | `libs/cloudinary/utils.ts` | Upload store, mapping, ping used by health |
 | Config | `libs/configs/env.config.ts` | `ServerEnv`, `loadServerEnv` |
 | Constants | `libs/constants/limits.contant.ts` | Export/import size limits (filename is spelled **`contant`** in the repo) |
@@ -45,11 +45,11 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 ## Spec and tests (outside `src/`)
 
 - **`backend/openapi.yaml`** — HTTP contract referenced by Scalar and tests.
-- **`backend/test/`** — Vitest + Supertest. **`test/setup-env.ts`** loads **`backend/.env`** before any test file. Root tests build **`createApp`** with in-memory repositories and doubles from **`test/test-utils.ts`** / **`test/in-memory-upload-repository.ts`**. **`test/unit-test/libs/**`** mirrors **`src/libs/**`** and runs adapter checks against Cloudinary, Firebase, and OpenRouter where applicable; rules and prerequisites are in **`docs/code-rules/unit-test-rules.md`** and **`backend/README.md`** → **Testing**.
+- **`backend/test/`** — Vitest + Supertest. **`test/setup-env.ts`** loads **`backend/.env`** before any test file. Root tests build **`createApp`** with in-memory repositories and doubles from **`test/test-utils.ts`** / **`test/in-memory-upload-repository.ts`**. **`test/unit-test/libs/**`** mirrors **`src/libs/**`** and runs adapter checks against Cloudinary, Firebase, and the configured LLM provider where applicable; rules and prerequisites are in **`docs/code-rules/unit-test-rules.md`** and **`backend/README.md`** → **Testing**.
 
 ## Vendor integration write-ups
 
-- **`docs/dependencies/`** — Cloudinary, OpenRouter, Scalar, Firebase implementation notes (`README.md` indexes the folder).
+- **`docs/dependencies/`** — Cloudinary, OpenAI-compatible LLM provider, Scalar, Firebase implementation notes (`README.md` indexes the folder).
 
 ## What this document does not cover
 
@@ -57,6 +57,6 @@ There is **no** separate `dependencies.ts`; composition for production lives nex
 
 ---
 
-**Updated:** 2026-04-19
+**Updated:** 2026-04-24
 **Applies to:** grim backend architecture (`backend/src/`, `backend/package.json` -> version `0.1.0`)
-**Doc version:** 2
+**Doc version:** 3
