@@ -62,10 +62,10 @@ jobs:
           FINAL_LLM_MODEL: ${{ vars.FINAL_LLM_MODEL }}
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -78,6 +78,9 @@ jobs:
       - name: Build backend
         working-directory: backend
         run: npm run build
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
 
       - name: Pull Vercel project settings
         run: vercel --cwd backend pull --yes --environment=production --token="$VERCEL_TOKEN"
