@@ -20,8 +20,8 @@ info:
   version: 0.2.0
 
 servers:
-  - url: http://localhost:3001
-    description: Local (change host/port if `PORT` or bind address differs)
+  - url: /
+    description: Same origin as the loaded API reference
 
 tags:
   - name: health
