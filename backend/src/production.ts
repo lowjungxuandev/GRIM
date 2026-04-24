@@ -29,19 +29,22 @@ export function createProductionDependencies(env: ServerEnv): AppDependencies {
     model: env.EXTRACT_LLM.model,
     baseURL: env.EXTRACT_LLM.baseURL,
     getExtractPromptText: () => promptSettings.getExtractTextPrompt(),
-    getAnalyzingSystemPrompt: () => promptSettings.getAnalyzingTextPrompt()
+    getAnalyzingSystemPrompt: () => promptSettings.getAnalyzingTextPrompt(),
+    getFormatGuardSystemPrompt: () => promptSettings.getFormatGuardPrompt()
   });
   const finalLlmProcessor = new OpenAICompatibleTextProcessor({
     apiKey: env.FINAL_LLM.apiKey,
     model: env.FINAL_LLM.model,
     baseURL: env.FINAL_LLM.baseURL,
     getExtractPromptText: () => promptSettings.getExtractTextPrompt(),
-    getAnalyzingSystemPrompt: () => promptSettings.getAnalyzingTextPrompt()
+    getAnalyzingSystemPrompt: () => promptSettings.getAnalyzingTextPrompt(),
+    getFormatGuardSystemPrompt: () => promptSettings.getFormatGuardPrompt()
   });
   const importService = new ImportService({
     uploadRepository,
     textExtractor: extractLlmProcessor,
     finalTextBuilder: finalLlmProcessor,
+    finalTextFormatGuard: finalLlmProcessor,
     imageStorage: new CloudinaryImageStore(),
     notifier,
     logger: console

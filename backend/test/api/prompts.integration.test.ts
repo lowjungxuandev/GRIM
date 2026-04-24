@@ -6,12 +6,14 @@ describe("GET /api/v1/prompts", () => {
   it("returns both prompt strings", async () => {
     const app = buildTestApp({
       initialExtractPrompt: "e1",
-      initialAnalyzingPrompt: "a1"
+      initialAnalyzingPrompt: "a1",
+      initialFormatGuardPrompt: "g1"
     });
     const res = await request(app).get("/api/v1/prompts").expect(200);
     expect(res.body).toEqual({
       extractTextPrompt: "e1",
-      analyzingTextPrompt: "a1"
+      analyzingTextPrompt: "a1",
+      formatGuardPrompt: "g1"
     });
   });
 
@@ -38,25 +40,32 @@ describe("PUT /api/v1/prompts", () => {
   it("overwrites prompts on disk and returns the new snapshot (JSON)", async () => {
     const app = buildTestApp({
       initialExtractPrompt: "old-e",
-      initialAnalyzingPrompt: "old-a"
+      initialAnalyzingPrompt: "old-a",
+      initialFormatGuardPrompt: "old-g"
     });
     const res = await request(app)
       .put("/api/v1/prompts")
-      .send({ extractTextPrompt: "new-e", analyzingTextPrompt: "new-a" })
+      .send({
+        extractTextPrompt: "new-e",
+        analyzingTextPrompt: "new-a",
+        formatGuardPrompt: "new-g"
+      })
       .expect(200);
     expect(res.body).toEqual({
       extractTextPrompt: "new-e",
-      analyzingTextPrompt: "new-a"
+      analyzingTextPrompt: "new-a",
+      formatGuardPrompt: "new-g"
     });
 
     const again = await request(app).get("/api/v1/prompts").expect(200);
     expect(again.body).toEqual(res.body);
   });
 
-  it("accepts multipart/form-data with extract_text and analyzing_text file parts", async () => {
+  it("accepts multipart/form-data with extract_text, analyzing_text, and format_guard file parts", async () => {
     const app = buildTestApp({
       initialExtractPrompt: "old-e",
-      initialAnalyzingPrompt: "old-a"
+      initialAnalyzingPrompt: "old-a",
+      initialFormatGuardPrompt: "old-g"
     });
     const res = await request(app)
       .put("/api/v1/prompts")
@@ -68,22 +77,30 @@ describe("PUT /api/v1/prompts", () => {
         filename: "analyzing_text_prompt.txt",
         contentType: "text/plain"
       })
+      .attach("format_guard", Buffer.from("from-file-g", "utf8"), {
+        filename: "format_guard_prompt.txt",
+        contentType: "text/plain"
+      })
       .expect(200);
     expect(res.body.extractTextPrompt).toBe("from-file-e");
     expect(res.body.analyzingTextPrompt).toBe("from-file-a");
+    expect(res.body.formatGuardPrompt).toBe("from-file-g");
   });
 
-  it("accepts multipart text fields extract_text / analyzing_text without files", async () => {
+  it("accepts multipart text fields extract_text / analyzing_text / format_guard without files", async () => {
     const app = buildTestApp({
       initialExtractPrompt: "x",
-      initialAnalyzingPrompt: "y"
+      initialAnalyzingPrompt: "y",
+      initialFormatGuardPrompt: "z"
     });
     const res = await request(app)
       .put("/api/v1/prompts")
       .field("extract_text", "only-extract")
+      .field("format_guard", "only-guard")
       .expect(200);
     expect(res.body.extractTextPrompt).toBe("only-extract");
     expect(res.body.analyzingTextPrompt).toBe("y");
+    expect(res.body.formatGuardPrompt).toBe("only-guard");
   });
 
   it("returns 400 when body omits both fields", async () => {

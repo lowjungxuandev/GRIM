@@ -20,6 +20,7 @@ describe("POST /api/v1/import (HTTP integration)", () => {
     const streamImport = vi.fn(async (_req, emit) => {
       emit({ status: "extracting_text" });
       emit({ status: "analyzing_text" });
+      emit({ status: "format_guard" });
       emit({ id: "upl_1", createdAt: 1, updatedAt: 2, finalText: "ok" });
     });
     const app = buildTestApp({ importService: { streamImport } });
@@ -34,6 +35,7 @@ describe("POST /api/v1/import (HTTP integration)", () => {
     expect(parseSseDataLines(res.text)).toEqual([
       { status: "extracting_text" },
       { status: "analyzing_text" },
+      { status: "format_guard" },
       { id: "upl_1", createdAt: 1, updatedAt: 2, finalText: "ok" }
     ]);
     expect(streamImport).toHaveBeenCalledTimes(1);
@@ -71,12 +73,13 @@ describe("POST /api/v1/import (HTTP integration)", () => {
     const events = parseSseDataLines(res.text);
     expect(events[0]).toEqual({ status: "extracting_text" });
     expect(events[1]).toEqual({ status: "analyzing_text" });
-    expect(events[2]).toMatchObject({
+    expect(events[2]).toEqual({ status: "format_guard" });
+    expect(events[3]).toMatchObject({
       id: "integration_upload_id",
       createdAt: 4242,
       updatedAt: 4242,
       extractedText: "extracted",
-      finalText: "final:extracted",
+      finalText: "guarded:final:extracted",
       imageUrl: "https://example.test/img",
       cloudinaryPublicId: "test_public_id"
     });
@@ -86,7 +89,7 @@ describe("POST /api/v1/import (HTTP integration)", () => {
       id: "integration_upload_id",
       createdAt: 4242,
       updatedAt: 4242,
-      finalText: "final:extracted"
+      finalText: "guarded:final:extracted"
     });
   });
 

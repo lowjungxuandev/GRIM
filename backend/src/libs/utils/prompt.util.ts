@@ -5,37 +5,44 @@ import { ApiError } from "./api-error.util";
 export type PromptBundle = {
   extractTextPrompt: string;
   analyzingTextPrompt: string;
+  formatGuardPrompt: string;
 };
 
 export type PromptUpdateBody = Partial<{
   extractTextPrompt: string;
   analyzingTextPrompt: string;
+  formatGuardPrompt: string;
 }>;
 
 export class GrimPromptSettings {
   private extractTextPrompt = "";
   private analyzingTextPrompt = "";
+  private formatGuardPrompt = "";
 
   private constructor(
     private readonly extractPath: string,
-    private readonly analyzingPath: string
+    private readonly analyzingPath: string,
+    private readonly formatGuardPath: string
   ) {
     this.reloadFromDisk();
   }
 
   /**
-   * Loads `extract_text_prompt.txt` and `analyzing_text_prompt.txt` from `promptsDir`.
+   * Loads `extract_text_prompt.txt`, `analyzing_text_prompt.txt`, and
+   * `format_guard_prompt.txt` from `promptsDir`.
    */
   static loadFromDirectory(promptsDir: string): GrimPromptSettings {
     const extractPath = path.join(promptsDir, "extract_text_prompt.txt");
     const analyzingPath = path.join(promptsDir, "analyzing_text_prompt.txt");
-    return new GrimPromptSettings(extractPath, analyzingPath);
+    const formatGuardPath = path.join(promptsDir, "format_guard_prompt.txt");
+    return new GrimPromptSettings(extractPath, analyzingPath, formatGuardPath);
   }
 
   reloadFromDisk(): void {
     try {
       this.extractTextPrompt = fs.readFileSync(this.extractPath, "utf8");
       this.analyzingTextPrompt = fs.readFileSync(this.analyzingPath, "utf8");
+      this.formatGuardPrompt = fs.readFileSync(this.formatGuardPath, "utf8");
     } catch (error) {
       const hint = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to read prompt files: ${hint}`);
@@ -45,7 +52,8 @@ export class GrimPromptSettings {
   getSnapshot(): PromptBundle {
     return {
       extractTextPrompt: this.extractTextPrompt,
-      analyzingTextPrompt: this.analyzingTextPrompt
+      analyzingTextPrompt: this.analyzingTextPrompt,
+      formatGuardPrompt: this.formatGuardPrompt
     };
   }
 
@@ -57,15 +65,23 @@ export class GrimPromptSettings {
     return this.analyzingTextPrompt;
   }
 
+  getFormatGuardPrompt(): string {
+    return this.formatGuardPrompt;
+  }
+
   /**
    * Overwrites one or both prompts on disk and refreshes the in-memory copy.
    */
   updatePrompts(body: PromptUpdateBody): void {
-    if (body.extractTextPrompt === undefined && body.analyzingTextPrompt === undefined) {
+    if (
+      body.extractTextPrompt === undefined &&
+      body.analyzingTextPrompt === undefined &&
+      body.formatGuardPrompt === undefined
+    ) {
       throw new ApiError(
         400,
         "INVALID_REQUEST",
-        "Provide at least one prompt: JSON keys extractTextPrompt / analyzingTextPrompt, or multipart fields extract_text / analyzing_text (file or text)"
+        "Provide at least one prompt: JSON keys extractTextPrompt / analyzingTextPrompt / formatGuardPrompt, or multipart fields extract_text / analyzing_text / format_guard (file or text)"
       );
     }
 
@@ -83,6 +99,14 @@ export class GrimPromptSettings {
       }
       fs.writeFileSync(this.analyzingPath, body.analyzingTextPrompt, "utf8");
       this.analyzingTextPrompt = body.analyzingTextPrompt;
+    }
+
+    if (body.formatGuardPrompt !== undefined) {
+      if (typeof body.formatGuardPrompt !== "string") {
+        throw new ApiError(400, "INVALID_REQUEST", "formatGuardPrompt must be a string");
+      }
+      fs.writeFileSync(this.formatGuardPath, body.formatGuardPrompt, "utf8");
+      this.formatGuardPrompt = body.formatGuardPrompt;
     }
   }
 }

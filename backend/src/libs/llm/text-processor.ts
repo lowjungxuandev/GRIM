@@ -1,5 +1,9 @@
 import OpenAI from "openai";
-import type { FinalTextBuilder, ImageTextExtractor } from "../../api/v1/model/services.model";
+import type {
+  FinalTextBuilder,
+  FinalTextFormatGuard,
+  ImageTextExtractor
+} from "../../api/v1/model/services.model";
 
 type OpenAICompatibleMessage =
   | { role: "system"; content: string }
@@ -33,19 +37,22 @@ export type OpenAICompatibleTextProcessorOptions = {
   baseURL?: string;
   getExtractPromptText: () => string;
   getAnalyzingSystemPrompt: () => string;
+  getFormatGuardSystemPrompt: () => string;
   client?: OpenAICompatibleChatClient;
 };
 
-export class OpenAICompatibleTextProcessor implements ImageTextExtractor, FinalTextBuilder {
+export class OpenAICompatibleTextProcessor implements ImageTextExtractor, FinalTextBuilder, FinalTextFormatGuard {
   private readonly client: OpenAICompatibleChatClient;
   private readonly model: string;
   private readonly getExtractPromptText: () => string;
   private readonly getAnalyzingSystemPrompt: () => string;
+  private readonly getFormatGuardSystemPrompt: () => string;
 
   constructor(options: OpenAICompatibleTextProcessorOptions) {
     this.model = options.model;
     this.getExtractPromptText = options.getExtractPromptText;
     this.getAnalyzingSystemPrompt = options.getAnalyzingSystemPrompt;
+    this.getFormatGuardSystemPrompt = options.getFormatGuardSystemPrompt;
     this.client =
       options.client ??
       new OpenAI({
@@ -87,6 +94,23 @@ export class OpenAICompatibleTextProcessor implements ImageTextExtractor, FinalT
       ],
       max_tokens: 4096,
       temperature: 0.15
+    });
+
+    return normalizeAssistantContent(response.choices?.[0]?.message?.content);
+  }
+
+  async guardFinalText(finalText: string): Promise<string> {
+    const response = await this.client.chat.completions.create({
+      model: this.model,
+      messages: [
+        { role: "system", content: this.getFormatGuardSystemPrompt().trimEnd() },
+        {
+          role: "user",
+          content: finalText
+        }
+      ],
+      max_tokens: 4096,
+      temperature: 0
     });
 
     return normalizeAssistantContent(response.choices?.[0]?.message?.content);

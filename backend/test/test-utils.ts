@@ -22,6 +22,7 @@ export const silentLogger: Logger = {
 
 export function stableOkHealth(): HealthReport {
   return {
+    version: "0.0.0-test",
     ok: true,
     firebase: { ok: true, latencyMs: 0 },
     llm: { ok: true, latencyMs: 0 },
@@ -49,6 +50,8 @@ export type BuildTestAppInput = {
   initialExtractPrompt?: string;
   /** Seed file `analyzing_text_prompt.txt` in an isolated temp prompts directory (default short test string). */
   initialAnalyzingPrompt?: string;
+  /** Seed file `format_guard_prompt.txt` in an isolated temp prompts directory (default short test string). */
+  initialFormatGuardPrompt?: string;
 };
 
 const noopImportService: ImportService = {
@@ -71,6 +74,11 @@ function createIsolatedPromptSettings(input: BuildTestAppInput): GrimPromptSetti
   fs.writeFileSync(
     path.join(dir, "analyzing_text_prompt.txt"),
     input.initialAnalyzingPrompt ?? "test analyzing prompt",
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(dir, "format_guard_prompt.txt"),
+    input.initialFormatGuardPrompt ?? "test format guard prompt",
     "utf8"
   );
   return GrimPromptSettings.loadFromDirectory(dir);
@@ -100,6 +108,7 @@ export function createImportServiceWithStubbedPipeline(deps?: Partial<ImportServ
     uploadRepository,
     textExtractor: deps?.textExtractor ?? { extractTextFromImage: async () => "extracted" },
     finalTextBuilder: deps?.finalTextBuilder ?? { buildFinalText: async (t) => `final:${t}` },
+    finalTextFormatGuard: deps?.finalTextFormatGuard ?? { guardFinalText: async (t) => `guarded:${t}` },
     imageStorage:
       deps?.imageStorage ??
       ({

@@ -12,7 +12,7 @@ export type GrimUploadRow = GrimUpload & { id: string };
 
 /** SSE `data:` JSON for progress (after Cloudinary, before / between model calls). */
 export type ImportStreamStatusBody = {
-  status: "extracting_text" | "analyzing_text";
+  status: "extracting_text" | "analyzing_text" | "format_guard";
 };
 
 export type ImportStreamErrorBody = {

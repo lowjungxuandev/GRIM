@@ -35,6 +35,7 @@ describe("createImportHandler", () => {
       streamImport: vi.fn(async (_req, emit) => {
         emit({ status: "extracting_text" });
         emit({ status: "analyzing_text" });
+        emit({ status: "format_guard" });
         emit({
           id: "upl_x",
           createdAt: 1,
@@ -73,6 +74,7 @@ describe("createImportHandler", () => {
     expect(parseSseDataLines(body)).toEqual([
       { status: "extracting_text" },
       { status: "analyzing_text" },
+      { status: "format_guard" },
       {
         id: "upl_x",
         createdAt: 1,

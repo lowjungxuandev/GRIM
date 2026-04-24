@@ -21,10 +21,18 @@ export class ImportService implements ImportServiceContract {
 
   /**
    * Order: image storage → SSE extracting_text → image text extraction → SSE analyzing_text → final text →
-   * Realtime Database (single write) → FCM hint → SSE final row (or SSE error after RTDB error write).
+   * SSE format_guard → guarded final text → Realtime Database (single write) → FCM hint →
+   * SSE final row (or SSE error after RTDB error write).
    */
   async streamImport(request: ImportRequest, emit: ImportStreamEmitter): Promise<void> {
-    const { uploadRepository, textExtractor, finalTextBuilder, imageStorage, notifier } = this.deps;
+    const {
+      uploadRepository,
+      textExtractor,
+      finalTextBuilder,
+      finalTextFormatGuard,
+      imageStorage,
+      notifier
+    } = this.deps;
     const uploadId = this.newId();
     const createdAt = this.now();
 
@@ -37,13 +45,15 @@ export class ImportService implements ImportServiceContract {
       );
       emit({ status: "analyzing_text" });
       const finalText = await finalTextBuilder.buildFinalText(extractedText);
+      emit({ status: "format_guard" });
+      const guardedFinalText = await finalTextFormatGuard.guardFinalText(finalText);
       const updatedAt = this.now();
 
       await uploadRepository.createPendingUpload(uploadId, {
         createdAt,
         updatedAt,
         extractedText,
-        finalText,
+        finalText: guardedFinalText,
         imageUrl: image.imageUrl,
         cloudinaryPublicId: image.cloudinaryPublicId
       });
@@ -60,7 +70,7 @@ export class ImportService implements ImportServiceContract {
         createdAt,
         updatedAt,
         extractedText,
-        finalText,
+        finalText: guardedFinalText,
         imageUrl: image.imageUrl,
         cloudinaryPublicId: image.cloudinaryPublicId
       });

@@ -12,6 +12,7 @@ describe("OpenAICompatibleTextProcessor", () => {
       baseURL: "https://openrouter.ai/api/v1",
       getExtractPromptText: () => "instruction line\n",
       getAnalyzingSystemPrompt: () => "analyze",
+      getFormatGuardSystemPrompt: () => "guard",
       client: { chat: { completions: { create } } }
     });
 
@@ -46,6 +47,7 @@ describe("OpenAICompatibleTextProcessor", () => {
       model: "custom/model",
       getExtractPromptText: () => "instruction",
       getAnalyzingSystemPrompt: () => "analyze",
+      getFormatGuardSystemPrompt: () => "guard",
       client: { chat: { completions: { create } } }
     });
 
@@ -63,6 +65,7 @@ describe("OpenAICompatibleTextProcessor", () => {
       model: "custom/model",
       getExtractPromptText: () => "extract",
       getAnalyzingSystemPrompt: () => "analyze prompt\n",
+      getFormatGuardSystemPrompt: () => "guard",
       client: { chat: { completions: { create } } }
     });
 
@@ -77,6 +80,33 @@ describe("OpenAICompatibleTextProcessor", () => {
       ],
       max_tokens: 4096,
       temperature: 0.15
+    });
+  });
+
+  it("calls chat completions with the format guard prompt and final text", async () => {
+    const create = vi.fn(async () => ({
+      choices: [{ message: { content: " guarded final " } }]
+    }));
+    const processor = new OpenAICompatibleTextProcessor({
+      apiKey: "test-key",
+      model: "custom/model",
+      getExtractPromptText: () => "extract",
+      getAnalyzingSystemPrompt: () => "analyze",
+      getFormatGuardSystemPrompt: () => "guard prompt\n",
+      client: { chat: { completions: { create } } }
+    });
+
+    const out = await processor.guardFinalText("final text");
+
+    expect(out).toBe("guarded final");
+    expect(create).toHaveBeenCalledWith({
+      model: "custom/model",
+      messages: [
+        { role: "system", content: "guard prompt" },
+        { role: "user", content: "final text" }
+      ],
+      max_tokens: 4096,
+      temperature: 0
     });
   });
 });

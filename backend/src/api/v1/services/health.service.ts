@@ -3,6 +3,7 @@ import type { Database } from "firebase-admin/database";
 import OpenAI from "openai";
 import { pingCloudinary } from "../../../libs/cloudinary/utils";
 import type { LlmConfig } from "../../../libs/configs/env.config";
+import { getAppVersion } from "../../../libs/utils/app-version.util";
 import type { DependencyCheck, HealthReport } from "../model/health.model";
 
 const HEALTH_REQUEST_TIMEOUT_MS = 10_000;
@@ -29,6 +30,7 @@ export function createHealthRunner(database: Database, extractLlmConfig: LlmConf
     const llm = combineLlmChecks(extractLlm, finalLlm);
 
     return {
+      version: getAppVersion(),
       ok: firebase.ok && llm.ok && cloudinary.ok,
       firebase,
       llm,

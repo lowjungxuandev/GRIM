@@ -5,6 +5,7 @@ export type DependencyCheck = {
 };
 
 export type HealthReport = {
+  version: string;
   ok: boolean;
   firebase: DependencyCheck;
   llm: DependencyCheck;

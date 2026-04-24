@@ -20,6 +20,10 @@ export interface FinalTextBuilder {
   buildFinalText(extractedText: string): Promise<string>;
 }
 
+export interface FinalTextFormatGuard {
+  guardFinalText(finalText: string): Promise<string>;
+}
+
 export interface ImageStorage {
   uploadImage(imageBuffer: Buffer, publicId: string): Promise<UploadedImage>;
 }
@@ -36,6 +40,7 @@ export type ImportServiceDependencies = {
   uploadRepository: UploadRepository;
   textExtractor: ImageTextExtractor;
   finalTextBuilder: FinalTextBuilder;
+  finalTextFormatGuard: FinalTextFormatGuard;
   imageStorage: ImageStorage;
   notifier: ResultNotifier;
   logger?: Logger;

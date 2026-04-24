@@ -9,6 +9,7 @@ describe("GET /health (HTTP integration)", () => {
     });
     const res = await request(app).get("/health").expect(200);
     expect(res.body).toMatchObject({
+      version: expect.any(String),
       ok: true,
       firebase: { ok: true, latencyMs: expect.any(Number) },
       llm: { ok: true, latencyMs: expect.any(Number) },

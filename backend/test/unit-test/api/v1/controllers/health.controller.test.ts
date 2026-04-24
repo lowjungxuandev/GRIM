@@ -6,6 +6,7 @@ import type { HealthReport } from "../../../../../src/api/v1/model/health.model"
 function report(partial: Partial<HealthReport> & Pick<HealthReport, "ok">): HealthReport {
   const dep = { ok: true, latencyMs: 1 };
   return {
+    version: partial.version ?? "0.0.0-test",
     ok: partial.ok,
     firebase: partial.firebase ?? dep,
     llm: partial.llm ?? dep,

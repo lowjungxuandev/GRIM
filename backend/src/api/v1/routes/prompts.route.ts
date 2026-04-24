@@ -22,7 +22,8 @@ function mapPromptMulterError(err: unknown): ApiError {
 
 const promptMultipartUpload = createPromptFilesMulter().fields([
   { name: "extract_text", maxCount: 1 },
-  { name: "analyzing_text", maxCount: 1 }
+  { name: "analyzing_text", maxCount: 1 },
+  { name: "format_guard", maxCount: 1 }
 ]);
 
 function maybeParsePromptMultipart(req: Request, res: Response, next: NextFunction): void {

@@ -25,7 +25,7 @@ export type ServerEnv = {
    * FCM topic for `broadcastNewResult` (default `grim_new_result`). Clients must subscribe to this topic.
    */
   GRIM_FCM_TOPIC?: string;
-  /** Directory containing `extract_text_prompt.txt` and `analyzing_text_prompt.txt` (default `./prompts` from process cwd). */
+  /** Directory containing `extract_text_prompt.txt`, `analyzing_text_prompt.txt`, and `format_guard_prompt.txt` (default `./prompts` from process cwd). */
   GRIM_PROMPTS_DIR?: string;
   /** When set, `GET`/`PUT /api/v1/prompts` require header `X-Grim-Prompt-Secret` with this exact value. */
   GRIM_PROMPT_ADMIN_SECRET?: string;

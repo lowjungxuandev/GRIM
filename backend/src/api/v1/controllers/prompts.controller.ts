@@ -30,8 +30,9 @@ export function createGetPromptsHandler(settings: GrimPromptSettings): RequestHa
 }
 
 /**
- * Supports **`application/json`** (`extractTextPrompt` / `analyzingTextPrompt`) or
- * **`multipart/form-data`** with optional file parts **`extract_text`** and **`analyzing_text`**
+ * Supports **`application/json`** (`extractTextPrompt` / `analyzingTextPrompt` / `formatGuardPrompt`) or
+ * **`multipart/form-data`** with optional file parts **`extract_text`**, **`analyzing_text`**,
+ * and **`format_guard`**
  * (and optional same-named text fields if no file for that slot).
  */
 export function createPutPromptsHandler(settings: GrimPromptSettings): RequestHandler {
@@ -45,12 +46,15 @@ export function createPutPromptsHandler(settings: GrimPromptSettings): RequestHa
       const files = req.files as MulterFieldFiles | undefined;
       const extractFromFile = readUtf8FromFile(firstFile(files, "extract_text"));
       const analyzingFromFile = readUtf8FromFile(firstFile(files, "analyzing_text"));
+      const formatGuardFromFile = readUtf8FromFile(firstFile(files, "format_guard"));
       const extractFromField = readStringField(req.body, "extract_text");
       const analyzingFromField = readStringField(req.body, "analyzing_text");
+      const formatGuardFromField = readStringField(req.body, "format_guard");
 
       update = {
         extractTextPrompt: extractFromFile ?? extractFromField,
-        analyzingTextPrompt: analyzingFromFile ?? analyzingFromField
+        analyzingTextPrompt: analyzingFromFile ?? analyzingFromField,
+        formatGuardPrompt: formatGuardFromFile ?? formatGuardFromField
       };
     } else {
       const body = req.body as unknown;
@@ -60,7 +64,8 @@ export function createPutPromptsHandler(settings: GrimPromptSettings): RequestHa
       const json = body as PromptUpdateBody;
       update = {
         extractTextPrompt: json.extractTextPrompt,
-        analyzingTextPrompt: json.analyzingTextPrompt
+        analyzingTextPrompt: json.analyzingTextPrompt,
+        formatGuardPrompt: json.formatGuardPrompt
       };
     }
 

@@ -8,6 +8,7 @@ describe("ImportService", () => {
     const uploadRepository = new InMemoryUploadRepository();
     const textExtractor = { extractTextFromImage: vi.fn(async () => "extracted") };
     const finalTextBuilder = { buildFinalText: vi.fn(async (t: string) => `final:${t}`) };
+    const finalTextFormatGuard = { guardFinalText: vi.fn(async (t: string) => `guarded:${t}`) };
     const imageStorage = {
       uploadImage: vi.fn(async () => ({
         imageUrl: "https://img",
@@ -26,6 +27,7 @@ describe("ImportService", () => {
       uploadRepository,
       textExtractor,
       finalTextBuilder,
+      finalTextFormatGuard,
       imageStorage,
       notifier,
       logger,
@@ -41,12 +43,13 @@ describe("ImportService", () => {
     expect(emit.mock.calls.map((c) => c[0])).toEqual([
       { status: "extracting_text" },
       { status: "analyzing_text" },
+      { status: "format_guard" },
       {
         id: "upl_testid",
         createdAt: 99,
         updatedAt: 99,
         extractedText: "extracted",
-        finalText: "final:extracted",
+        finalText: "guarded:final:extracted",
         imageUrl: "https://img",
         cloudinaryPublicId: "pid"
       }
@@ -55,6 +58,7 @@ describe("ImportService", () => {
     expect(imageStorage.uploadImage).toHaveBeenCalledBefore(textExtractor.extractTextFromImage);
     expect(textExtractor.extractTextFromImage).toHaveBeenCalledWith(Buffer.from("img"), "image/png");
     expect(finalTextBuilder.buildFinalText).toHaveBeenCalledWith("extracted");
+    expect(finalTextFormatGuard.guardFinalText).toHaveBeenCalledWith("final:extracted");
     expect(imageStorage.uploadImage).toHaveBeenCalledWith(Buffer.from("img"), "upl_testid");
     expect(notifier.broadcastNewResult).toHaveBeenCalled();
     expect(notifier.broadcastExportRefresh).toHaveBeenCalled();
@@ -62,7 +66,7 @@ describe("ImportService", () => {
     const done = await uploadRepository.getUpload("upl_testid");
     expect(done?.createdAt).toBe(99);
     expect(done?.extractedText).toBe("extracted");
-    expect(done?.finalText).toBe("final:extracted");
+    expect(done?.finalText).toBe("guarded:final:extracted");
     expect(done?.imageUrl).toBe("https://img");
     expect(done?.cloudinaryPublicId).toBe("pid");
     expect(done?.updatedAt).toBe(99);
@@ -82,6 +86,7 @@ describe("ImportService", () => {
       uploadRepository,
       textExtractor,
       finalTextBuilder: { buildFinalText: vi.fn(async () => "") },
+      finalTextFormatGuard: { guardFinalText: vi.fn(async (t: string) => t) },
       imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", cloudinaryPublicId: "p" })) },
       notifier: { broadcastNewResult: vi.fn(), broadcastCaptureRequest: vi.fn(), broadcastExportRefresh: vi.fn() },
       logger,
@@ -113,6 +118,7 @@ describe("ImportService", () => {
         })
       },
       finalTextBuilder: { buildFinalText: vi.fn() },
+      finalTextFormatGuard: { guardFinalText: vi.fn(async (t: string) => t) },
       imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", cloudinaryPublicId: "p" })) },
       notifier: { broadcastNewResult: vi.fn(), broadcastCaptureRequest: vi.fn(), broadcastExportRefresh: vi.fn() },
       logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },

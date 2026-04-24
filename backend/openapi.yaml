@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Grim API
   description: |
-    HTTP API for Grim’s backend: integration **health**, manual **capture** notification, image **import** (LLM pipeline over SSE), paginated **export**, and **prompt** templates for the extract + analyzing stages.
+    HTTP API for Grim’s backend: integration **health**, manual **capture** notification, image **import** (LLM pipeline over SSE), paginated **export**, and **prompt** templates for the extract + analyzing + format guard stages.
 
     | Area | Base path |
     |------|-----------|
@@ -10,11 +10,11 @@ info:
     | Import | `POST /api/v1/import` — `multipart/form-data`, required file field **`image`** (`text/event-stream`) |
     | Capture | `POST /api/v1/capture` |
     | Export | `GET /api/v1/export` |
-    | Prompts | `GET /api/v1/prompts`, `PUT /api/v1/prompts` (JSON or **`multipart/form-data`** fields **`extract_text`** / **`analyzing_text`**) |
+    | Prompts | `GET /api/v1/prompts`, `PUT /api/v1/prompts` (JSON or **`multipart/form-data`** fields **`extract_text`** / **`analyzing_text`** / **`format_guard`**) |
 
     **`POST /api/v1/import`** returns **Server-Sent Events** (`text/event-stream`): JSON on each `data:` line (progress, then a terminal success row or `error` object). See that operation for the exact sequence.
 
-    **Prompts:** text loaded from `extract_text_prompt.txt` and `analyzing_text_prompt.txt` under **`GRIM_PROMPTS_DIR`** (default `./prompts` relative to the server process). **`PUT /api/v1/prompts`** overwrites those strings on disk and updates the in-memory copy used by the next import. Optional **`GRIM_PROMPT_ADMIN_SECRET`** forces clients to send **`X-Grim-Prompt-Secret`**.
+    **Prompts:** text loaded from `extract_text_prompt.txt`, `analyzing_text_prompt.txt`, and `format_guard_prompt.txt` under **`GRIM_PROMPTS_DIR`** (default `./prompts` relative to the server process). **`PUT /api/v1/prompts`** overwrites those strings on disk and updates the in-memory copy used by the next import. Optional **`GRIM_PROMPT_ADMIN_SECRET`** forces clients to send **`X-Grim-Prompt-Secret`**.
 
     **Interactive docs:** with the backend running, open **`/docs`** on the same origin for embedded [Scalar API Reference](https://scalar.com/products/api-references), or import this file’s URL elsewhere.
   version: 0.2.0
@@ -30,15 +30,15 @@ tags:
     description: |
       Multipart image upload (`multipart/form-data`); the file part must be named **`image`**.
       Response is Server-Sent Events until the pipeline finishes.
-      Extract and analyzing instructions come from the **prompts** templates (`extract_text_prompt.txt`, `analyzing_text_prompt.txt`) unless changed at runtime via **`PUT /api/v1/prompts`**.
+      Extract, analyzing, and format guard instructions come from the **prompts** templates (`extract_text_prompt.txt`, `analyzing_text_prompt.txt`, `format_guard_prompt.txt`) unless changed at runtime via **`PUT /api/v1/prompts`**.
   - name: export
     description: Paginated newest-first list from Realtime Database (`page`, `limit`, `is_next`)
   - name: capture
     description: Receiver-triggered silent FCM topic request for sender devices to capture and import a photo
   - name: prompts
     description: |
-      Read or replace the full prompt strings used by **`POST /api/v1/import`**: extract stage (**`extractTextPrompt`**, instructions before the image) and analyzing stage (**`analyzingTextPrompt`**, system message; extracted text is the user message).
-      Files on disk: **`extract_text_prompt.txt`**, **`analyzing_text_prompt.txt`** under **`GRIM_PROMPTS_DIR`**. Request body for **PUT** is JSON (server **`express.json` limit 2 MB**).
+      Read or replace the full prompt strings used by **`POST /api/v1/import`**: extract stage (**`extractTextPrompt`**, instructions before the image), analyzing stage (**`analyzingTextPrompt`**, system message; extracted text is the user message), and format guard stage (**`formatGuardPrompt`**, system message; step-10 final text is the only user input).
+      Files on disk: **`extract_text_prompt.txt`**, **`analyzing_text_prompt.txt`**, **`format_guard_prompt.txt`** under **`GRIM_PROMPTS_DIR`**. Request body for **PUT** is JSON (server **`express.json` limit 2 MB**).
 
 paths:
   /health:
@@ -66,6 +66,7 @@ paths:
                 allOk:
                   summary: All integrations healthy
                   value:
+                    version: 0.1.0
                     ok: true
                     firebase:
                       ok: true
@@ -86,6 +87,7 @@ paths:
                 llmUnauthorized:
                   summary: LLM provider key rejected (API reachable)
                   value:
+                    version: 0.1.0
                     ok: false
                     firebase:
                       ok: true
@@ -119,16 +121,17 @@ paths:
 
         When the pipeline **succeeds**, the server sends two receiver-targeted FCM **topic** messages on the configured topic. The visible message is `kind: new_result`, `notificationType: notify`, `role: receiver`. The silent message is `kind: export_refresh`, `notificationType: silent`, `role: receiver`, with `url: /api/v1/export?page=1&limit=20`. Topic defaults to **`grim_new_result`** (override with env `GRIM_FCM_TOPIC`). No FCM send on pipeline failure.
 
-        **LLM prompts (configurable):** the extract stage uses current **`extractTextPrompt`** with the uploaded image. The analyzing stage receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. Defaults ask for structured JSON (questions/options/type, then answers); **`extractedText`** and **`finalText`** in the success row are **opaque strings** returned by the configured LLM providers (often JSON). The extract and final stages may use different provider configs. Change prompts with **`GET/PUT /api/v1/prompts`**.
+        **LLM prompts (configurable):** the extract stage uses current **`extractTextPrompt`** with the uploaded image. The analyzing stage receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. The format guard stage receives **system** = current **`formatGuardPrompt`** and **user** = only the step-10 final text. Defaults ask for structured JSON (questions/options/type/answer) and reject wrong patterns before the Firebase write. The extract and final stages may use different provider configs. Change prompts with **`GET/PUT /api/v1/prompts`**.
 
-        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **extract LLM config** (image text extraction) → **final LLM config** (final text) → **Realtime Database** write under `uploads/{id}` (no row before that), then receiver FCM topic messages on success.
+        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **extract LLM config** (image text extraction) → **final LLM config** (final text) → **format guard LLM pass** (hardens final text format) → **Realtime Database** write under `uploads/{id}` (no row before that), then receiver FCM topic messages on success.
 
         Each SSE message is one `data:` line whose value is a single JSON object:
 
         1. `{"status":"extracting_text"}` — after Cloudinary, before image text extraction.
         2. `{"status":"analyzing_text"}` — after extraction, before final text.
-        3. On success: a JSON object with `id`, `createdAt`, `updatedAt`, `extractedText`, `finalText`, `imageUrl`, and `cloudinaryPublicId` (same shape as stored under `uploads/{id}`).
-        4. On failure: `{"error":{"code":"…","message":"…"}}` (same `code` / `message` style as `ErrorBody` elsewhere). If **image storage** fails before any `status` event, the stream may contain **only** this terminal `data:` line. If the stream has already started, this appears as the last `data:` line instead of a separate HTTP error body.
+        3. `{"status":"format_guard"}` — after final text generation, before format hardening and Firebase write.
+        4. On success: a JSON object with `id`, `createdAt`, `updatedAt`, `extractedText`, guarded `finalText`, `imageUrl`, and `cloudinaryPublicId` (same shape as stored under `uploads/{id}`).
+        5. On failure: `{"error":{"code":"…","message":"…"}}` (same `code` / `message` style as `ErrorBody` elsewhere). If **image storage** fails before any `status` event, the stream may contain **only** this terminal `data:` line. If the stream has already started, this appears as the last `data:` line instead of a separate HTTP error body.
 
         **HTTP 500** with a normal JSON `ErrorBody` is used only when the request fails **before** any SSE bytes are sent (for example an internal error in the handler). Once `text/event-stream` has started, failures use the terminal SSE `data:` object above.
       operationId: postImport
@@ -181,6 +184,8 @@ paths:
 
                     data: {"status":"analyzing_text"}
 
+                    data: {"status":"format_guard"}
+
                     data: {"id":"upl_abc","createdAt":1745000001000,"updatedAt":1745000001500,"extractedText":"…","finalText":"…","imageUrl":"https://res.cloudinary.com/demo/image/upload/v1/grim/upl_abc.png","cloudinaryPublicId":"grim/upl_abc"}
 
                 pipelineError:
@@ -208,7 +213,7 @@ paths:
       tags: [prompts]
       summary: Get LLM prompt templates
       description: |
-        Returns the current **`extractTextPrompt`** (extract stage instructions) and **`analyzingTextPrompt`** (final-text system instructions).
+        Returns the current **`extractTextPrompt`** (extract stage instructions), **`analyzingTextPrompt`** (final-text system instructions), and **`formatGuardPrompt`** (format hardening system instructions).
 
         When the server sets env **`GRIM_PROMPT_ADMIN_SECRET`**, clients must send header **`X-Grim-Prompt-Secret`** with that exact value or the call returns **401**.
       operationId: getPrompts
@@ -227,6 +232,7 @@ paths:
                   value:
                     extractTextPrompt: "You are analyzing an image of a screen…"
                     analyzingTextPrompt: "You are given plain text that was extracted…"
+                    formatGuardPrompt: "You are a strict JSON format guard…"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -235,7 +241,7 @@ paths:
       tags: [prompts]
       summary: Overwrite LLM prompt templates
       description: |
-        Updates one or both prompt files on the server (`extract_text_prompt.txt` / `analyzing_text_prompt.txt` under **`GRIM_PROMPTS_DIR`**, default `./prompts`).
+        Updates one or more prompt files on the server (`extract_text_prompt.txt` / `analyzing_text_prompt.txt` / `format_guard_prompt.txt` under **`GRIM_PROMPTS_DIR`**, default `./prompts`).
 
         **`POST /api/v1/import`** uses the updated strings for **subsequent** runs (same process; in-memory and files stay aligned).
 
@@ -244,9 +250,10 @@ paths:
         1. **`multipart/form-data`** (recommended for files) — optional parts:
            - **`extract_text`** — UTF-8 text file (`.txt`, `text/*`, or `application/octet-stream`) **or** a plain text field with the same name if you are not uploading a file.
            - **`analyzing_text`** — same rules as **`extract_text`**.
-           At least one of these two names must be present (file or non-empty text field). Each file is limited to **2 MB**.
+           - **`format_guard`** — same rules as **`extract_text`**; controls the post-analysis format hardening pass.
+           At least one of these three names must be present (file or non-empty text field). Each file is limited to **2 MB**.
 
-        2. **`application/json`** — optional keys **`extractTextPrompt`** and **`analyzingTextPrompt`** (camelCase). At least one key must be present. Whole JSON body is limited by the server parser (**2 MB**).
+        2. **`application/json`** — optional keys **`extractTextPrompt`**, **`analyzingTextPrompt`**, and **`formatGuardPrompt`** (camelCase). At least one key must be present. Whole JSON body is limited by the server parser (**2 MB**).
 
         Same **`X-Grim-Prompt-Secret`** rule as **GET** when **`GRIM_PROMPT_ADMIN_SECRET`** is set.
       operationId: putPrompts
@@ -258,7 +265,7 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              description: At least one of the two fields must be supplied (as a file part or a non-empty text field).
+              description: At least one of the three fields must be supplied (as a file part or a non-empty text field).
               properties:
                 extract_text:
                   type: string
@@ -267,6 +274,10 @@ paths:
                 analyzing_text:
                   type: string
                   description: Final-text system prompt — same as **`extract_text`**
+                  format: binary
+                format_guard:
+                  type: string
+                  description: Format guard system prompt — same as **`extract_text`**
                   format: binary
           application/json:
             schema:
@@ -277,6 +288,7 @@ paths:
                 value:
                   extractTextPrompt: "…"
                   analyzingTextPrompt: "…"
+                  formatGuardPrompt: "…"
               extractOnly:
                 summary: Replace extract instructions only (JSON)
                 value:
@@ -448,7 +460,7 @@ components:
               value:
                 error:
                   code: INVALID_REQUEST
-                  message: Provide at least one of extractTextPrompt or analyzingTextPrompt
+                  message: Provide at least one prompt: JSON keys extractTextPrompt / analyzingTextPrompt / formatGuardPrompt, or multipart fields extract_text / analyzing_text / format_guard (file or text)
             promptsNotObject:
               summary: Prompts — body must be a JSON object
               value:
@@ -540,8 +552,12 @@ components:
 
     IntegrationHealthReport:
       type: object
-      required: [ok, firebase, llm, cloudinary]
+      required: [version, ok, firebase, llm, cloudinary]
       properties:
+        version:
+          type: string
+          description: Backend application version from `backend/package.json`
+          example: 0.1.0
         ok:
           type: boolean
           description: True only when **firebase**, **llm**, and **cloudinary** are all `ok`
@@ -559,7 +575,7 @@ components:
       properties:
         status:
           type: string
-          enum: [extracting_text, analyzing_text]
+          enum: [extracting_text, analyzing_text, format_guard]
 
     ImportStreamResult:
       type: object
@@ -567,7 +583,7 @@ components:
       description: |
         Success terminal event; mirrors the Realtime Database row under `uploads/{id}`.
         **`extractedText`** is the vision model’s reply (prompt-controlled; default templates request JSON arrays of questions/options/type).
-        **`finalText`** is the analyzing model reply (default templates request JSON including **`answer`** arrays per question).
+        **`finalText`** is the format-guarded analyzing model reply (default templates request JSON including **`answer`** arrays per question).
       properties:
         id:
           type: string
@@ -584,7 +600,7 @@ components:
           example: '[{"question":"Q1?","options":["A","B"],"type":"single"}]'
         finalText:
           type: string
-          description: Raw model output from the analyze/final stage (string; often JSON when using default prompts).
+          description: Guarded model output after the format guard stage (string; expected to be JSON when using default prompts).
           example: '[{"question":"Q1?","options":["A","B"],"type":"single","answer":["A"]}]'
         imageUrl:
           type: string
@@ -679,7 +695,7 @@ components:
 
     PromptBundle:
       type: object
-      required: [extractTextPrompt, analyzingTextPrompt]
+      required: [extractTextPrompt, analyzingTextPrompt, formatGuardPrompt]
       properties:
         extractTextPrompt:
           type: string
@@ -687,6 +703,9 @@ components:
         analyzingTextPrompt:
           type: string
           description: Full system instructions for final text (answer derivation + JSON shape including `answer`).
+        formatGuardPrompt:
+          type: string
+          description: Full system instructions for the post-analysis format guard stage.
 
     PromptUpdateRequest:
       type: object
@@ -695,6 +714,8 @@ components:
         extractTextPrompt:
           type: string
         analyzingTextPrompt:
+          type: string
+        formatGuardPrompt:
           type: string
 
     ErrorBody:

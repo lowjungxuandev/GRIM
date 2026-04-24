@@ -53,13 +53,14 @@ export function createImportImageMulter(maxFileSizeBytes: number): multer.Multer
 }
 
 /**
- * Multipart upload for `PUT /api/v1/prompts`: optional file parts **`extract_text`** and **`analyzing_text`**
+ * Multipart upload for `PUT /api/v1/prompts`: optional file parts **`extract_text`**, **`analyzing_text`**,
+ * and **`format_guard`**
  * (UTF-8 `.txt` or `text/*`). At least one part must be supplied in the handler (file buffer or text field).
  */
 export function createPromptFilesMulter(): multer.Multer {
   return multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: PROMPT_FILE_MAX_BYTES, files: 2 },
+    limits: { fileSize: PROMPT_FILE_MAX_BYTES, files: 3 },
     fileFilter: (_req, file, cb) => {
       const mt = (file.mimetype ?? "").toLowerCase();
       const ext = extname(file.originalname || "").toLowerCase();
