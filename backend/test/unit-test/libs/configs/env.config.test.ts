@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_NVIDIA_BASE_URL,
   DEFAULT_OPENROUTER_BASE_URL,
   DEFAULT_OPENROUTER_MODEL,
   loadServerEnv
@@ -27,7 +28,18 @@ const llmKeys = [
   "FINAL_LLM_BASE_URL",
   "OPENROUTER_API_KEY",
   "OPENROUTER_MODEL",
-  "OPENROUTER_IMAGE_MODEL"
+  "OPENROUTER_IMAGE_MODEL",
+  "OPENAI_API_KEY",
+  "OPENAI_EXTRACT_MODEL",
+  "OPENAI_FINAL_MODEL",
+  "OPENAI_BASE_URL",
+  "OPENROUTER_EXTRACT_MODEL",
+  "OPENROUTER_FINAL_MODEL",
+  "OPENROUTER_BASE_URL",
+  "NVIDIA_API_KEY",
+  "NVIDIA_EXTRACT_MODEL",
+  "NVIDIA_FINAL_MODEL",
+  "NVIDIA_BASE_URL"
 ] as const;
 
 describe("loadServerEnv", () => {
@@ -175,23 +187,58 @@ describe("loadServerEnv", () => {
     expect(() => loadServerEnv()).toThrow(/Missing required env var FINAL_LLM_MODEL/);
   });
 
-  it("requires an explicit base URL for a stage using NVIDIA NIM", () => {
-    vi.stubEnv("EXTRACT_LLM_PROVIDER", "nim");
+  it("uses provider-specific runtime vars when stage-specific vars are unset", () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    delete process.env.OPENROUTER_API_KEY;
+    vi.stubEnv("OPENAI_API_KEY", "openai-key");
+    vi.stubEnv("OPENAI_EXTRACT_MODEL", "gpt-extract");
+    vi.stubEnv("OPENAI_FINAL_MODEL", "gpt-final");
+    const env = loadServerEnv();
+    expect(env.EXTRACT_LLM).toEqual({
+      provider: "openai",
+      apiKey: "openai-key",
+      model: "gpt-extract",
+      baseURL: undefined
+    });
+    expect(env.FINAL_LLM).toEqual({
+      provider: "openai",
+      apiKey: "openai-key",
+      model: "gpt-final",
+      baseURL: undefined
+    });
+  });
+
+  it("defaults NVIDIA provider-specific base URL for runtime config", () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    delete process.env.OPENROUTER_API_KEY;
+    vi.stubEnv("NVIDIA_API_KEY", "nim-key");
+    vi.stubEnv("NVIDIA_EXTRACT_MODEL", "nvidia/extract");
+    vi.stubEnv("NVIDIA_FINAL_MODEL", "nvidia/final");
+    const env = loadServerEnv();
+    expect(env.EXTRACT_LLM).toEqual({
+      provider: "nvidia_nim",
+      apiKey: "nim-key",
+      model: "nvidia/extract",
+      baseURL: DEFAULT_NVIDIA_BASE_URL
+    });
+    expect(env.FINAL_LLM.model).toBe("nvidia/final");
+  });
+
+  it("uses the default NVIDIA base URL for a stage using NVIDIA NIM", () => {
+    vi.stubEnv("EXTRACT_LLM_PROVIDER", "nvidia_nim");
     vi.stubEnv("EXTRACT_LLM_API_KEY", "nim-key");
     vi.stubEnv("EXTRACT_LLM_MODEL", "nvidia/llama-3.1-nemotron-nano-vl-8b-v1");
-    expect(() => loadServerEnv()).toThrow(
-      /Missing required env var EXTRACT_LLM_BASE_URL when EXTRACT_LLM_PROVIDER=nim/
-    );
+    expect(loadServerEnv().EXTRACT_LLM.baseURL).toBe(DEFAULT_NVIDIA_BASE_URL);
   });
 
   it("accepts stage-specific NVIDIA NIM config when the base URL is set", () => {
-    vi.stubEnv("EXTRACT_LLM_PROVIDER", "nim");
+    vi.stubEnv("EXTRACT_LLM_PROVIDER", "nvidia_nim");
     vi.stubEnv("EXTRACT_LLM_API_KEY", "nim-key");
     vi.stubEnv("EXTRACT_LLM_MODEL", "nvidia/llama-3.1-nemotron-nano-vl-8b-v1");
     vi.stubEnv("EXTRACT_LLM_BASE_URL", "http://localhost:8000/v1");
     const env = loadServerEnv();
     expect(env.EXTRACT_LLM).toEqual({
-      provider: "nim",
+      provider: "nvidia_nim",
       apiKey: "nim-key",
       model: "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
       baseURL: "http://localhost:8000/v1"

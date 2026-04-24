@@ -27,20 +27,12 @@ Required environment variables:
 - Firebase Admin credentials: set either `GOOGLE_APPLICATION_CREDENTIALS` or `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_DATABASE_URL`
-- `EXTRACT_LLM_PROVIDER` — `openrouter`, `openai`, or `nim`
-- `EXTRACT_LLM_API_KEY`
-- `EXTRACT_LLM_MODEL`
-- `FINAL_LLM_PROVIDER` — `openrouter`, `openai`, or `nim`
-- `FINAL_LLM_API_KEY`
-- `FINAL_LLM_MODEL`
+- At least one provider key/model group: `OPENAI_*`, `OPENROUTER_*`, or `NVIDIA_*`
 
 Optional:
 
-- `EXTRACT_LLM_BASE_URL` — optional for `openrouter` and `openai`; required for `nim`
-- `FINAL_LLM_BASE_URL` — optional for `openrouter` and `openai`; required for `nim`
-- Shared defaults: `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL` can be used when both stages share a provider or when one stage only needs a partial override.
+- Provider config: `OPENROUTER_API_KEY` / `OPENROUTER_EXTRACT_MODEL` / `OPENROUTER_FINAL_MODEL` / `OPENROUTER_BASE_URL`, `OPENAI_API_KEY` / `OPENAI_EXTRACT_MODEL` / `OPENAI_FINAL_MODEL` / `OPENAI_BASE_URL`, and `NVIDIA_API_KEY` / `NVIDIA_EXTRACT_MODEL` / `NVIDIA_FINAL_MODEL` / `NVIDIA_BASE_URL`. OpenRouter defaults to `https://openrouter.ai/api/v1`, OpenAI uses the SDK default when `OPENAI_BASE_URL` is blank, and NVIDIA defaults to `https://integrate.api.nvidia.com/v1`.
 - `GRIM_FCM_TOPIC` — FCM topic for capture/import signals (default `grim_new_result`)
-- Legacy compatibility: `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, and `OPENROUTER_IMAGE_MODEL` still work when neither the stage-specific nor shared `LLM_*` vars are set.
 
 ### API
 
@@ -62,6 +54,7 @@ Optional:
   - optional `page` (default 1), optional `limit` (default 20, max 50)
   - returns `200` paginated JSON (`data`, `page`, `limit`, `is_next`); newest first by `createdAt`; completed rows add `finalText`, `imageUrl`, `updatedAt`; failed rows add `errorMessage`, `updatedAt`
 - `GET /api/v1/prompts`, `PUT /api/v1/prompts` — read or overwrite extract / analyzing prompt templates (`backend/prompts/*.txt` by default; optional `GRIM_PROMPTS_DIR`, `GRIM_PROMPT_ADMIN_SECRET`). **PUT** accepts **`multipart/form-data`** with file or text fields **`extract_text`** and **`analyzing_text`**, or **`application/json`** with **`extractTextPrompt`** / **`analyzingTextPrompt`**.
+- `GET /api/v1/provider`, `PUT /api/v1/provider` — read or switch the active LLM provider. State is stored in Realtime Database at `provider_state/current_provide`; accepted values are `openrouter`, `openai`, and `nvidia_nim`.
 
 ### Docs
 

@@ -8,9 +8,25 @@ import type { ServerEnv } from "./libs/configs/env.config";
 import { CloudinaryImageStore } from "./libs/cloudinary/utils";
 import { DEFAULT_FCM_BROADCAST_TOPIC, FirebaseNotifier } from "./libs/firebase/fcm";
 import { getFirebaseAdminApp } from "./libs/firebase/admin";
-import { FirebaseUploadRepository, getRealtimeDb } from "./libs/firebase/realtime";
-import { OpenAICompatibleTextProcessor } from "./libs/llm/text-processor";
+import {
+  FirebaseProviderStateRepository,
+  FirebaseUploadRepository,
+  getRealtimeDb
+} from "./libs/firebase/realtime";
 import { GrimPromptSettings } from "./libs/utils/prompt.util";
+import {
+  DEFAULT_NVIDIA_BASE_URL,
+  DEFAULT_OPENROUTER_BASE_URL,
+  DEFAULT_OPENROUTER_MODEL,
+  type LlmConfig,
+  type LlmProvider
+} from "./libs/configs/env.config";
+import { ProviderOrchestrator } from "./libs/utils/provider_orchestrator.util";
+
+type ProviderStageConfig = {
+  extract: LlmConfig;
+  final: LlmConfig;
+};
 
 export function createProductionDependencies(env: ServerEnv): AppDependencies {
   const promptsDir = env.GRIM_PROMPTS_DIR ?? path.resolve(__dirname, "..", "prompts");
@@ -18,33 +34,26 @@ export function createProductionDependencies(env: ServerEnv): AppDependencies {
   const firebaseApp = getFirebaseAdminApp(env);
   const realtimeDb = getRealtimeDb(firebaseApp);
   const uploadRepository = new FirebaseUploadRepository(realtimeDb);
+  const providerStateRepository = new FirebaseProviderStateRepository(realtimeDb);
   const exportService = new ExportService(uploadRepository);
   const notifier = new FirebaseNotifier(
     firebaseApp,
     env.GRIM_FCM_TOPIC ?? DEFAULT_FCM_BROADCAST_TOPIC
   );
   const captureService = new CaptureService(notifier);
-  const extractLlmProcessor = new OpenAICompatibleTextProcessor({
-    apiKey: env.EXTRACT_LLM.apiKey,
-    model: env.EXTRACT_LLM.model,
-    baseURL: env.EXTRACT_LLM.baseURL,
-    getExtractPromptText: () => promptSettings.getExtractTextPrompt(),
-    getAnalyzingSystemPrompt: () => promptSettings.getAnalyzingTextPrompt(),
-    getFormatGuardSystemPrompt: () => promptSettings.getFormatGuardPrompt()
-  });
-  const finalLlmProcessor = new OpenAICompatibleTextProcessor({
-    apiKey: env.FINAL_LLM.apiKey,
-    model: env.FINAL_LLM.model,
-    baseURL: env.FINAL_LLM.baseURL,
+  const providerOrchestrator = new ProviderOrchestrator({
+    providers: buildProviderConfigs(env),
+    defaultProvider: env.EXTRACT_LLM.provider,
+    stateRepository: providerStateRepository,
     getExtractPromptText: () => promptSettings.getExtractTextPrompt(),
     getAnalyzingSystemPrompt: () => promptSettings.getAnalyzingTextPrompt(),
     getFormatGuardSystemPrompt: () => promptSettings.getFormatGuardPrompt()
   });
   const importService = new ImportService({
     uploadRepository,
-    textExtractor: extractLlmProcessor,
-    finalTextBuilder: finalLlmProcessor,
-    finalTextFormatGuard: finalLlmProcessor,
+    textExtractor: providerOrchestrator,
+    finalTextBuilder: providerOrchestrator,
+    finalTextFormatGuard: providerOrchestrator,
     imageStorage: new CloudinaryImageStore(),
     notifier,
     logger: console
@@ -54,9 +63,79 @@ export function createProductionDependencies(env: ServerEnv): AppDependencies {
     importService,
     exportService,
     captureService,
+    providerService: providerOrchestrator,
     runHealthChecks: createHealthRunner(realtimeDb, env.EXTRACT_LLM, env.FINAL_LLM),
     logger: console,
     promptSettings,
     promptAdminSecret: env.GRIM_PROMPT_ADMIN_SECRET
+  };
+}
+
+function buildProviderConfigs(env: ServerEnv): Partial<Record<LlmProvider, ProviderStageConfig>> {
+  const providers: Partial<Record<LlmProvider, ProviderStageConfig>> = {};
+
+  for (const provider of ["openrouter", "openai", "nvidia_nim"] as const) {
+    const config = readProviderConfigFromEnv(provider);
+    if (config) {
+      providers[provider] = config;
+    }
+  }
+
+  providers[env.EXTRACT_LLM.provider] ??= {
+    extract: env.EXTRACT_LLM,
+    final: env.FINAL_LLM
+  };
+
+  return providers;
+}
+
+function readProviderConfigFromEnv(provider: LlmProvider): ProviderStageConfig | null {
+  const prefix = provider === "nvidia_nim" ? "NVIDIA" : provider.toUpperCase();
+  const legacyPrefix = provider === "nvidia_nim" ? "NVIDIA_NIM" : prefix;
+  const apiKey = process.env[`${prefix}_API_KEY`]?.trim();
+  if (!apiKey) {
+    return null;
+  }
+
+  const extractModel =
+    process.env[`${prefix}_EXTRACT_MODEL`]?.trim() ||
+    process.env[`${legacyPrefix}_EXTRACT_MODEL`]?.trim() ||
+    process.env[`${prefix}_MODEL`]?.trim() ||
+    process.env[`${legacyPrefix}_MODEL`]?.trim() ||
+    (provider === "openrouter"
+      ? process.env.OPENROUTER_IMAGE_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL
+      : undefined);
+  const finalModel =
+    process.env[`${prefix}_FINAL_MODEL`]?.trim() ||
+    process.env[`${legacyPrefix}_FINAL_MODEL`]?.trim() ||
+    process.env[`${prefix}_MODEL`]?.trim() ||
+    process.env[`${legacyPrefix}_MODEL`]?.trim() ||
+    (provider === "openrouter"
+      ? process.env.OPENROUTER_MODEL?.trim() || process.env.OPENROUTER_IMAGE_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL
+      : undefined);
+  if (!extractModel || !finalModel) {
+    return null;
+  }
+
+  const baseURL =
+    process.env[`${prefix}_BASE_URL`]?.trim() ||
+    process.env[`${legacyPrefix}_BASE_URL`]?.trim() ||
+    (provider === "openrouter" ? DEFAULT_OPENROUTER_BASE_URL : undefined);
+  const resolvedBaseURL =
+    baseURL || (provider === "nvidia_nim" ? DEFAULT_NVIDIA_BASE_URL : undefined);
+
+  return {
+    extract: {
+      provider,
+      apiKey,
+      model: extractModel,
+      baseURL: resolvedBaseURL
+    },
+    final: {
+      provider,
+      apiKey,
+      model: finalModel,
+      baseURL: resolvedBaseURL
+    }
   };
 }

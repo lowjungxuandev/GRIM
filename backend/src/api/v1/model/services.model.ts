@@ -1,4 +1,5 @@
 import type { GrimUpload, GrimUploadRow, ImportRequest, ImportStreamSseData } from "./import.model";
+import type { LlmProvider } from "../../../libs/configs/env.config";
 
 export type UploadedImage = {
   imageUrl: string;
@@ -56,4 +57,14 @@ export interface ImportService {
 
 export interface CaptureService {
   sendCaptureNotification(): Promise<void>;
+}
+
+export interface ProviderService {
+  getSnapshot(): Promise<{
+    current_provide: LlmProvider;
+    available_providers: LlmProvider[];
+  }>;
+  setCurrentProvider(provider: LlmProvider): Promise<{
+    current_provide: LlmProvider;
+  }>;
 }

@@ -5,7 +5,8 @@ import { createApp } from "../src/app";
 import type {
   CaptureService,
   ImportServiceDependencies,
-  Logger
+  Logger,
+  ProviderService
 } from "../src/api/v1/model/services.model";
 import type { HealthReport } from "../src/api/v1/model/health.model";
 import type { ImportService } from "../src/api/v1/model/services.model";
@@ -13,6 +14,7 @@ import { ExportService } from "../src/api/v1/services/export.service";
 import { ImportService as ImportServiceImpl } from "../src/api/v1/services/import.service";
 import { GrimPromptSettings } from "../src/libs/utils/prompt.util";
 import { InMemoryUploadRepository } from "./in-memory-upload-repository";
+import type { LlmProvider } from "../src/libs/configs/env.config";
 
 export const silentLogger: Logger = {
   error: () => {},
@@ -42,6 +44,7 @@ export type BuildTestAppInput = {
   importService?: ImportService;
   exportService?: ExportService;
   captureService?: CaptureService;
+  providerService?: ProviderService;
   runHealthChecks?: () => Promise<HealthReport>;
   logger?: Logger;
   /** When set, `GET`/`PUT /api/v1/prompts` require this secret via `X-Grim-Prompt-Secret`. */
@@ -62,6 +65,20 @@ const noopImportService: ImportService = {
 
 const noopCaptureService: CaptureService = {
   sendCaptureNotification: async () => {}
+};
+
+const inMemoryProviderService = (): ProviderService => {
+  let current_provide: LlmProvider = "openrouter";
+  return {
+    getSnapshot: async () => ({
+      current_provide,
+      available_providers: ["openrouter", "openai", "nvidia_nim"]
+    }),
+    setCurrentProvider: async (provider) => {
+      current_provide = provider;
+      return { current_provide };
+    }
+  };
 };
 
 function createIsolatedPromptSettings(input: BuildTestAppInput): GrimPromptSettings {
@@ -88,12 +105,14 @@ export function buildTestApp(input: BuildTestAppInput = {}) {
   const importService = input.importService ?? noopImportService;
   const exportService = input.exportService ?? new ExportService(new InMemoryUploadRepository());
   const captureService = input.captureService ?? noopCaptureService;
+  const providerService = input.providerService ?? inMemoryProviderService();
   const runHealthChecks = input.runHealthChecks ?? (async () => stableOkHealth());
   const promptSettings = createIsolatedPromptSettings(input);
   return createApp({
     importService,
     exportService,
     captureService,
+    providerService,
     runHealthChecks,
     promptSettings,
     promptAdminSecret: input.promptAdminSecret,

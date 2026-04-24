@@ -9,30 +9,17 @@ The backend uses the official `openai` Node SDK and selects an OpenAI-compatible
 
 ## Current repo status
 
-Implementation lives in `backend/src/libs/llm/text-processor.ts`.
+Implementation lives in `backend/src/libs/llm/text-processor.ts`, with runtime selection handled by `backend/src/libs/utils/provider_orchestrator.util.ts`.
 
-Runtime composition happens in `backend/src/server.ts`.
+Runtime composition happens in `backend/src/production.ts`.
 
-Primary env surface:
+Runtime provider switching uses provider-specific vars:
 
-- `EXTRACT_LLM_PROVIDER` / `EXTRACT_LLM_API_KEY` / `EXTRACT_LLM_MODEL`
-- `FINAL_LLM_PROVIDER` / `FINAL_LLM_API_KEY` / `FINAL_LLM_MODEL`
-- `EXTRACT_LLM_BASE_URL` / `FINAL_LLM_BASE_URL` — optional for OpenRouter and OpenAI, required for NVIDIA NIM
+- `OPENAI_API_KEY` / `OPENAI_EXTRACT_MODEL` / `OPENAI_FINAL_MODEL` / `OPENAI_BASE_URL`
+- `OPENROUTER_API_KEY` / `OPENROUTER_EXTRACT_MODEL` / `OPENROUTER_FINAL_MODEL` / `OPENROUTER_BASE_URL`
+- `NVIDIA_API_KEY` / `NVIDIA_EXTRACT_MODEL` / `NVIDIA_FINAL_MODEL` / `NVIDIA_BASE_URL`
 
-Optional shared defaults:
-
-- `LLM_PROVIDER`
-- `LLM_API_KEY`
-- `LLM_MODEL`
-- `LLM_BASE_URL`
-
-Legacy compatibility:
-
-- `OPENROUTER_API_KEY`
-- `OPENROUTER_MODEL`
-- `OPENROUTER_IMAGE_MODEL`
-
-These legacy vars are still accepted when neither the stage-specific nor shared `LLM_*` vars are set.
+The active provider is stored in Realtime Database at `provider_state/current_provide` and is changed through `GET`/`PUT /api/v1/provider`.
 
 The adapter uses the same SDK class for every provider:
 
@@ -48,7 +35,7 @@ Current defaults:
 - OpenRouter defaults to `https://openrouter.ai/api/v1` when a stage does not set `*_LLM_BASE_URL`
 - OpenRouter defaults to `openrouter/free` when a stage does not set `*_LLM_MODEL`
 - OpenAI uses the SDK default base URL when a stage does not set `*_LLM_BASE_URL`
-- NVIDIA NIM requires an explicit stage base URL pointing at the deployed `/v1` API
+- NVIDIA defaults to `https://integrate.api.nvidia.com/v1` for runtime provider switching; self-hosted NIM deployments can override this with `NVIDIA_BASE_URL`
 - When both stages share a provider, shared `LLM_*` vars can provide defaults that each stage inherits
 
 ## Import pipeline fit

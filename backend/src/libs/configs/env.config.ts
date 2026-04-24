@@ -1,7 +1,8 @@
-export type LlmProvider = "openrouter" | "openai" | "nim";
+export type LlmProvider = "openrouter" | "openai" | "nvidia_nim";
 
 export const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const DEFAULT_OPENROUTER_MODEL = "openrouter/free";
+export const DEFAULT_NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
 export type LlmConfig = {
   provider: LlmProvider;
@@ -112,21 +113,55 @@ function loadSharedLlmEnv(): Partial<LlmConfig> {
   };
 }
 
+function readProviderSpecificLlmEnv(provider: LlmProvider, stage: "EXTRACT" | "FINAL"): Partial<LlmConfig> {
+  const prefix = provider === "nvidia_nim" ? "NVIDIA" : provider.toUpperCase();
+  const legacyPrefix = provider === "nvidia_nim" ? "NVIDIA_NIM" : prefix;
+  const model =
+    readOptionalEnv(`${prefix}_${stage}_MODEL`) ??
+    readOptionalEnv(`${legacyPrefix}_${stage}_MODEL`) ??
+    readOptionalEnv(`${prefix}_MODEL`) ??
+    readOptionalEnv(`${legacyPrefix}_MODEL`) ??
+    (provider === "openrouter" ? DEFAULT_OPENROUTER_MODEL : undefined);
+  const baseURL =
+    readOptionalEnv(`${prefix}_BASE_URL`) ??
+    readOptionalEnv(`${legacyPrefix}_BASE_URL`) ??
+    (provider === "openrouter" ? DEFAULT_OPENROUTER_BASE_URL : undefined) ??
+    (provider === "nvidia_nim" ? DEFAULT_NVIDIA_BASE_URL : undefined);
+
+  return {
+    provider,
+    apiKey: readOptionalEnv(`${prefix}_API_KEY`) ?? readOptionalEnv(`${legacyPrefix}_API_KEY`),
+    model,
+    baseURL
+  };
+}
+
 function parseLlmProvider(value: string): LlmProvider {
   const normalizedValue = value.trim().toLowerCase();
 
-  if (normalizedValue === "openrouter" || normalizedValue === "openai" || normalizedValue === "nim") {
+  if (normalizedValue === "openrouter" || normalizedValue === "openai") {
     return normalizedValue;
+  }
+  if (normalizedValue === "nvidia_nim" || normalizedValue === "nim") {
+    return "nvidia_nim";
   }
 
   throw new Error(`Invalid LLM_PROVIDER: ${value}`);
 }
 
 function resolveDefaultProviderFromLegacyConfig(): LlmProvider {
+  if (readOptionalEnv("OPENROUTER_API_KEY")) {
+    return "openrouter";
+  }
+  if (readOptionalEnv("OPENAI_API_KEY")) {
+    return "openai";
+  }
+  if (readOptionalEnv("NVIDIA_API_KEY") || readOptionalEnv("NVIDIA_NIM_API_KEY")) {
+    return "nvidia_nim";
+  }
+
   const hasLegacyOpenRouterConfig = Boolean(
-    readOptionalEnv("OPENROUTER_API_KEY") ||
-      readOptionalEnv("OPENROUTER_MODEL") ||
-      readOptionalEnv("OPENROUTER_IMAGE_MODEL")
+    readOptionalEnv("OPENROUTER_MODEL") || readOptionalEnv("OPENROUTER_IMAGE_MODEL")
   );
 
   if (hasLegacyOpenRouterConfig) {
@@ -141,34 +176,31 @@ function loadStageLlmEnv(stage: "EXTRACT" | "FINAL", sharedLlm: Partial<LlmConfi
   const stageProvider = stageProviderRaw ? parseLlmProvider(stageProviderRaw) : undefined;
   const provider = stageProvider ?? sharedLlm.provider ?? resolveDefaultProviderFromLegacyConfig();
   const canInheritSharedFields = !stageProvider || stageProvider === sharedLlm.provider;
+  const providerSpecific = readProviderSpecificLlmEnv(provider, stage);
   const apiKey =
     readOptionalEnv(`${stage}_LLM_API_KEY`) ??
-    (canInheritSharedFields ? sharedLlm.apiKey : undefined);
+    (canInheritSharedFields ? sharedLlm.apiKey : undefined) ??
+    providerSpecific.apiKey;
   if (!apiKey) {
     throw new Error(
-      `Missing required env var ${stage}_LLM_API_KEY (or compatible shared fallback LLM_API_KEY / OPENROUTER_API_KEY)`
+      `Missing required env var ${stage}_LLM_API_KEY (or provider-specific ${providerEnvPrefix(provider)}_API_KEY)`
     );
   }
 
   const model =
     readOptionalEnv(`${stage}_LLM_MODEL`) ??
     (canInheritSharedFields ? sharedLlm.model : undefined) ??
-    (provider === "openrouter" ? DEFAULT_OPENROUTER_MODEL : undefined);
+    providerSpecific.model;
   if (!model) {
     throw new Error(
-      `Missing required env var ${stage}_LLM_MODEL (or compatible shared fallback LLM_MODEL)`
+      `Missing required env var ${stage}_LLM_MODEL (or provider-specific ${providerEnvPrefix(provider)}_${stage}_MODEL)`
     );
   }
 
   const baseURL =
     readOptionalEnv(`${stage}_LLM_BASE_URL`) ??
     (canInheritSharedFields ? sharedLlm.baseURL : undefined) ??
-    (provider === "openrouter" ? DEFAULT_OPENROUTER_BASE_URL : undefined);
-  if (provider === "nim" && !baseURL) {
-    throw new Error(
-      `Missing required env var ${stage}_LLM_BASE_URL when ${stage}_LLM_PROVIDER=nim`
-    );
-  }
+    providerSpecific.baseURL;
 
   return {
     provider,
@@ -176,4 +208,11 @@ function loadStageLlmEnv(stage: "EXTRACT" | "FINAL", sharedLlm: Partial<LlmConfi
     model,
     baseURL
   };
+}
+
+function providerEnvPrefix(provider: LlmProvider): "OPENROUTER" | "OPENAI" | "NVIDIA" {
+  if (provider === "nvidia_nim") {
+    return "NVIDIA";
+  }
+  return provider.toUpperCase() as "OPENROUTER" | "OPENAI";
 }

@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import express, { type RequestHandler, type Response } from "express";
-import type { CaptureService, ImportService, Logger } from "./api/v1/model/services.model";
+import type {
+  CaptureService,
+  ImportService,
+  Logger,
+  ProviderService
+} from "./api/v1/model/services.model";
 import type { HealthReport } from "./api/v1/model/health.model";
 import type { ExportService } from "./api/v1/services/export.service";
 import { mapRequestError, wrapAsync } from "./libs/utils/http.util";
@@ -10,6 +15,7 @@ import { createImportRouter } from "./api/v1/routes/import.route";
 import { createExportRouter } from "./api/v1/routes/export.route";
 import { createCaptureRouter } from "./api/v1/routes/capture.route";
 import { createPromptsRouter } from "./api/v1/routes/prompts.route";
+import { createProviderRouter } from "./api/v1/routes/provider.route";
 import type { GrimPromptSettings } from "./libs/utils/prompt.util";
 
 const OPENAPI_ROUTE = "/openapi.yaml";
@@ -19,6 +25,7 @@ export type AppDependencies = {
   importService: ImportService;
   exportService: ExportService;
   captureService: CaptureService;
+  providerService: ProviderService;
   runHealthChecks: () => Promise<HealthReport>;
   logger?: Logger;
   promptSettings: GrimPromptSettings;
@@ -30,6 +37,7 @@ export function createApp({
   importService,
   exportService,
   captureService,
+  providerService,
   runHealthChecks,
   promptSettings,
   promptAdminSecret,
@@ -78,6 +86,7 @@ export function createApp({
   v1Router.use(createExportRouter(exportService));
   v1Router.use(createCaptureRouter(captureService));
   v1Router.use(createPromptsRouter(promptSettings, { adminSecret: promptAdminSecret }));
+  v1Router.use(createProviderRouter(providerService));
   app.use("/api/v1", v1Router);
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
