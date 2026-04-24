@@ -66,7 +66,7 @@ paths:
                 allOk:
                   summary: All integrations healthy
                   value:
-                    version: 0.1.0
+                    version: 0.1.3
                     ok: true
                     firebase:
                       ok: true
@@ -87,7 +87,7 @@ paths:
                 llmUnauthorized:
                   summary: LLM provider key rejected (API reachable)
                   value:
-                    version: 0.1.0
+                    version: 0.1.3
                     ok: false
                     firebase:
                       ok: true
@@ -557,7 +557,7 @@ components:
         version:
           type: string
           description: Backend application version from `backend/package.json`
-          example: 0.1.0
+          example: 0.1.3
         ok:
           type: boolean
           description: True only when **firebase**, **llm**, and **cloudinary** are all `ok`

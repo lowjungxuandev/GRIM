@@ -99,5 +99,5 @@ docker run --rm -p 3001:3001 --env-file .env grim-backend:local
 ---
 
 **Updated:** 2026-04-24
-**Applies to:** grim backend (`backend/package.json` -> version `0.1.0`)
-**Doc version:** 5
+**Applies to:** grim backend (`backend/package.json` -> version `0.1.3`)
+**Doc version:** 6
