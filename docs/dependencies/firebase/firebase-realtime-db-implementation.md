@@ -77,7 +77,7 @@ Why this is enough:
 
 **When import writes:** `ImportService` does **not** touch Realtime Database until after **Cloudinary** (image), configured LLM image text extraction, and configured LLM final text generation have completed. It then performs a single **`set`** on `uploads/{id}` with the full success payload (or a single **`set`** with `errorMessage` if the pipeline failed). The client receives progress and the final row (or terminal error) over the same **HTTP 200** `text/event-stream` response before this write completes from the client’s perspective (the stream’s last `data:` line reflects the persisted outcome).
 
-For hosted deploys such as Vercel, Grim can now read Firebase Admin credentials from **`FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`** instead of requiring a local file path in **`GOOGLE_APPLICATION_CREDENTIALS`**.
+For hosted deploys, Grim can read Firebase Admin credentials from **`FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`** instead of requiring a local file path in **`GOOGLE_APPLICATION_CREDENTIALS`**.
 
 ## Write data
 

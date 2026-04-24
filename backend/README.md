@@ -72,39 +72,32 @@ Reference docs used to design the current implementation and future follow-up wo
 
 The v1 backend wires Cloudinary, Firebase Admin / Realtime Database / FCM, and one OpenAI-compatible adapter class into **`backend/src/`**. The extract and final-text stages can now use separate provider configs through `EXTRACT_LLM_*` and `FINAL_LLM_*`; shared `LLM_*` vars are still supported as defaults, and legacy OpenRouter env aliases remain accepted for compatibility. Current supported providers are OpenRouter, OpenAI, and NVIDIA NIM. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
 
-### GitHub Actions / Vercel
+### GitHub Actions / GHCR
 
-This repo now includes **`.github/workflows/deploy-vercel.yml`** and deploys the **`backend/`** directory to Vercel using **GitHub repository variables** (`vars.*`), not GitHub Actions secrets.
+This repo includes **`.github/workflows/publish-backend-image.yml`** to build the **`backend/`** Docker image and publish it to GitHub Packages / GitHub Container Registry.
 
-Required GitHub repository variables for that workflow:
+Published image:
 
-- `VERCEL_TOKEN`
-- `VERCEL_ORG_ID`
-- `VERCEL_PROJECT_ID`
-- `CLOUDINARY_URL`
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_DATABASE_URL`
-- `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`
-- `EXTRACT_LLM_PROVIDER`
-- `EXTRACT_LLM_API_KEY`
-- `EXTRACT_LLM_MODEL`
-- `FINAL_LLM_PROVIDER`
-- `FINAL_LLM_API_KEY`
-- `FINAL_LLM_MODEL`
+- `ghcr.io/<owner>/<repo>/backend`
 
-Optional GitHub repository variables:
+Version tags:
 
-- `EXTRACT_LLM_BASE_URL`
-- `FINAL_LLM_BASE_URL`
-- `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`
-- `GRIM_FCM_TOPIC`
-- `GRIM_PROMPT_ADMIN_SECRET`
-- `SCALAR_DOCS_URL`
+- Pushing to `main` publishes `latest`, `main`, and `sha-<commit>`.
+- Pushing a Git tag like `v1.2.3` publishes `1.2.3`, `1.2`, and `sha-<commit>`.
+- Manual `workflow_dispatch` builds are supported from GitHub Actions.
 
-The workflow passes those values to `vercel deploy` with `--env`, so you do not need to pre-create Vercel project env vars for this path.
+The workflow uses the built-in `GITHUB_TOKEN`; no external deployment token is required to publish the image. Runtime configuration still comes from the environment where the container is deployed.
+
+Local image build:
+
+```bash
+cd backend
+docker build -t grim-backend:local .
+docker run --rm -p 3001:3001 --env-file .env grim-backend:local
+```
 
 ---
 
 **Updated:** 2026-04-24
 **Applies to:** grim backend (`backend/package.json` -> version `0.1.0`)
-**Doc version:** 4
+**Doc version:** 5
