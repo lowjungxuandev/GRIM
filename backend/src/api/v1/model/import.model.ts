@@ -20,7 +20,7 @@ export type ImportStreamErrorBody = {
 };
 
 /** Payloads written as SSE `data:` lines for `POST /api/v1/import`. */
-export type ImportStreamSseData = ImportStreamStatusBody | GrimUploadRow | ImportStreamErrorBody;
+export type ImportStreamSseData = ImportStreamStatusBody | GrimUploadRow | ImportStreamErrorBody | object;
 
 export type ImportRequest = {
   imageBuffer: Buffer;

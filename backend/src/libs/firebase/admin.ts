@@ -17,8 +17,15 @@ function resolveFirebaseCredential(env: ServerEnv) {
   if (env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64) {
     return cert(parseServiceAccountFromBase64(env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64));
   }
+  if (env.GOOGLE_APPLICATION_CREDENTIALS && looksLikeBase64Json(env.GOOGLE_APPLICATION_CREDENTIALS)) {
+    return cert(parseServiceAccountFromBase64(env.GOOGLE_APPLICATION_CREDENTIALS));
+  }
 
   return applicationDefault();
+}
+
+function looksLikeBase64Json(value: string): boolean {
+  return value.trim().startsWith("ew");
 }
 
 function parseServiceAccountFromBase64(base64: string) {
@@ -45,6 +52,6 @@ function parseServiceAccountFromBase64(base64: string) {
     };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "unknown error";
-    throw new Error(`Invalid FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${reason}`);
+    throw new Error(`Invalid Firebase service account base64: ${reason}`);
   }
 }

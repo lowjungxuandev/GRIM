@@ -43,10 +43,13 @@ export class ImportService implements ImportServiceContract {
         request.imageBuffer,
         request.imageMimeType
       );
+      emit({ data: { extractedText } });
       emit({ status: "analyzing_text" });
       const finalText = await finalTextBuilder.buildFinalText(extractedText);
+      emit({ data: { finalText } });
       emit({ status: "format_guard" });
       const guardedFinalText = await finalTextFormatGuard.guardFinalText(finalText);
+      emit({ data: { guardedFinalText } });
       const updatedAt = this.now();
 
       await uploadRepository.createPendingUpload(uploadId, {
