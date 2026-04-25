@@ -72,16 +72,20 @@ describe("POST /api/v1/import (HTTP integration)", () => {
 
     const events = parseSseDataLines(res.text);
     expect(events[0]).toEqual({ status: "extracting_text" });
-    expect(events[1]).toEqual({ status: "analyzing_text" });
-    expect(events[2]).toEqual({ status: "format_guard" });
-    expect(events[3]).toMatchObject({
+    expect(events[1]).toEqual({ data: { extractedText: "extracted" } });
+    expect(events[2]).toEqual({ status: "analyzing_text" });
+    expect(events[3]).toEqual({ data: { finalText: "final:extracted" } });
+    expect(events[4]).toEqual({ status: "format_guard" });
+    expect(events[5]).toEqual({ data: { guardedFinalText: "guarded:final:extracted" } });
+    expect(events[6]).toMatchObject({
       id: "integration_upload_id",
       createdAt: 4242,
       updatedAt: 4242,
       extractedText: "extracted",
       finalText: "guarded:final:extracted",
-      imageUrl: "https://example.test/img",
-      cloudinaryPublicId: "test_public_id"
+      bucket: "testing",
+      objectKey: expect.any(String),
+      imageUrl: expect.any(String)
     });
 
     const row = await repo.getUpload("integration_upload_id");

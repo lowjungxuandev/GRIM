@@ -19,11 +19,13 @@ Server runs on `PORT` (default `3001`).
 npm test
 ```
 
-Vitest loads **`backend/.env` first** (`test/setup-env.ts`). **Configure `.env` before you run tests** (same steps as [Setup](#setup): copy `.env.example` to `.env` and fill every required value). Several suites exercise Cloudinary, Firebase Admin (Realtime Database and FCM topic messaging), and the configured OpenAI-compatible LLM provider against your real credentials; without a complete `.env`, those tests will fail with authentication or network errors from the vendors. **Library integration tests** under **`test/unit-test/libs/`** do not mock storage or the database—they create real rows/uploads and **must delete that test data** (see **`docs/code-rules/unit-test-rules.md`**).
+Vitest loads **`backend/.env` first** (`test/setup-env.ts`). **Configure `.env` before you run tests** (same steps as [Setup](#setup): copy `.env.example` to `.env` and fill every required value). Several suites exercise S3 (MinIO-compatible), Firebase Admin (Realtime Database and FCM topic messaging), and the configured OpenAI-compatible LLM provider against your real credentials; without a complete `.env`, those tests will fail with authentication or network errors from the vendors. **Library integration tests** under **`test/unit-test/libs/`** do not mock storage or the database—they create real rows/uploads and **must delete that test data** (see **`docs/code-rules/unit-test-rules.md`**).
 
 Required environment variables:
 
-- `CLOUDINARY_URL`
+- `S3_ENDPOINT`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
 - Firebase Admin credentials: set either `GOOGLE_APPLICATION_CREDENTIALS` or `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_DATABASE_URL`
@@ -39,7 +41,7 @@ Optional:
 - `GET /docs` — Scalar API Reference UI (loads `openapi.yaml` from this server)
 - `GET /openapi.yaml` — OpenAPI 3 spec (health, import, capture, export, prompts)
 - `GET /health`
-  - integration checks (Firebase Realtime Database, extract/final LLM configs aggregated under `llm`, Cloudinary); **200** or **503**; JSON matches OpenAPI schema `IntegrationHealthReport` with top-level keys `ok`, `firebase`, `llm`, and `cloudinary`
+  - integration checks (Firebase Realtime Database, extract/final LLM configs aggregated under `llm`, S3); **200** or **503**; JSON matches OpenAPI schema `IntegrationHealthReport` with top-level keys `ok`, `firebase`, `llm`, and `s3`
 - `POST /api/v1/capture`
   - receiver-triggered capture request
   - sends a silent FCM topic data message to sender devices: `kind: capture_request`, `notificationType: silent`, `role: sender`
@@ -60,10 +62,10 @@ Optional:
 
 Reference docs used to design the current implementation and future follow-up work:
 
-- **`docs/dependencies/`** — vendor integration notes (Cloudinary, OpenAI-compatible LLM providers via the OpenAI SDK, Scalar, Firebase); start at [`docs/dependencies/README.md`](../docs/dependencies/README.md).
+- **`docs/dependencies/`** — vendor integration notes (S3/MinIO, OpenAI-compatible LLM providers via the OpenAI SDK, Scalar, Firebase); start at [`docs/dependencies/README.md`](../docs/dependencies/README.md).
 - Repository **`docs/`** (top level): `workflow.md` (target end-to-end backend flow), `specification.md`, `testing-plan.md`, plus `code-rules/`, `instructions/`, `design/`.
 
-The v1 backend wires Cloudinary, Firebase Admin / Realtime Database / FCM, and one OpenAI-compatible adapter class into **`backend/src/`**. The extract and final-text stages can now use separate provider configs through `EXTRACT_LLM_*` and `FINAL_LLM_*`; shared `LLM_*` vars are still supported as defaults, and legacy OpenRouter env aliases remain accepted for compatibility. Current supported providers are OpenRouter, OpenAI, and NVIDIA NIM. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
+The v1 backend wires S3 (MinIO-compatible), Firebase Admin / Realtime Database / FCM, and one OpenAI-compatible adapter class into **`backend/src/`**. The extract and final-text stages can now use separate provider configs through `EXTRACT_LLM_*` and `FINAL_LLM_*`; shared `LLM_*` vars are still supported as defaults, and legacy OpenRouter env aliases remain accepted for compatibility. Current supported providers are OpenRouter, OpenAI, and NVIDIA NIM. Optional **`SCALAR_DOCS_URL`** only logs a link if you publish docs elsewhere; local Scalar UI is always **`/docs`** when the server runs.
 
 ### GitHub Actions / GHCR
 

@@ -13,7 +13,7 @@ describe("GET /health (HTTP integration)", () => {
       ok: true,
       firebase: { ok: true, latencyMs: expect.any(Number) },
       llm: { ok: true, latencyMs: expect.any(Number) },
-      cloudinary: { ok: true, latencyMs: expect.any(Number) }
+      s3: { ok: true, latencyMs: expect.any(Number) }
     });
   });
 

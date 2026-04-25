@@ -12,7 +12,8 @@ describe("ImportService", () => {
     const imageStorage = {
       uploadImage: vi.fn(async () => ({
         imageUrl: "https://img",
-        cloudinaryPublicId: "pid"
+        bucket: "b",
+        objectKey: "k"
       }))
     };
     const notifier = {
@@ -42,8 +43,11 @@ describe("ImportService", () => {
 
     expect(emit.mock.calls.map((c) => c[0])).toEqual([
       { status: "extracting_text" },
+      { data: { extractedText: "extracted" } },
       { status: "analyzing_text" },
+      { data: { finalText: "final:extracted" } },
       { status: "format_guard" },
+      { data: { guardedFinalText: "guarded:final:extracted" } },
       {
         id: "upl_testid",
         createdAt: 99,
@@ -51,7 +55,8 @@ describe("ImportService", () => {
         extractedText: "extracted",
         finalText: "guarded:final:extracted",
         imageUrl: "https://img",
-        cloudinaryPublicId: "pid"
+        bucket: "b",
+        objectKey: "k"
       }
     ]);
 
@@ -68,7 +73,8 @@ describe("ImportService", () => {
     expect(done?.extractedText).toBe("extracted");
     expect(done?.finalText).toBe("guarded:final:extracted");
     expect(done?.imageUrl).toBe("https://img");
-    expect(done?.cloudinaryPublicId).toBe("pid");
+    expect(done?.bucket).toBe("b");
+    expect(done?.objectKey).toBe("k");
     expect(done?.updatedAt).toBe(99);
   });
 
@@ -87,7 +93,7 @@ describe("ImportService", () => {
       textExtractor,
       finalTextBuilder: { buildFinalText: vi.fn(async () => "") },
       finalTextFormatGuard: { guardFinalText: vi.fn(async (t: string) => t) },
-      imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", cloudinaryPublicId: "p" })) },
+      imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", bucket: "b", objectKey: "k" })) },
       notifier: { broadcastNewResult: vi.fn(), broadcastCaptureRequest: vi.fn(), broadcastExportRefresh: vi.fn() },
       logger,
       now: () => 7,
@@ -119,7 +125,7 @@ describe("ImportService", () => {
       },
       finalTextBuilder: { buildFinalText: vi.fn() },
       finalTextFormatGuard: { guardFinalText: vi.fn(async (t: string) => t) },
-      imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", cloudinaryPublicId: "p" })) },
+      imageStorage: { uploadImage: vi.fn(async () => ({ imageUrl: "u", bucket: "b", objectKey: "k" })) },
       notifier: { broadcastNewResult: vi.fn(), broadcastCaptureRequest: vi.fn(), broadcastExportRefresh: vi.fn() },
       logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
       generateUploadId: () => "upl_api"

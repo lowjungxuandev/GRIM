@@ -1,14 +1,19 @@
 import axios from "axios";
 import type { Database } from "firebase-admin/database";
 import OpenAI from "openai";
-import { pingCloudinary } from "../../../libs/cloudinary/utils";
 import type { LlmConfig } from "../../../libs/configs/env.config";
 import { getAppVersion } from "../../../libs/utils/app-version.util";
+import { createS3Client, pingS3, type S3Config } from "../../../libs/s3/s3.util";
 import type { DependencyCheck, HealthReport } from "../model/health.model";
 
 const HEALTH_REQUEST_TIMEOUT_MS = 10_000;
 
-export function createHealthRunner(database: Database, extractLlmConfig: LlmConfig, finalLlmConfig: LlmConfig) {
+export function createHealthRunner(
+  database: Database,
+  extractLlmConfig: LlmConfig,
+  finalLlmConfig: LlmConfig,
+  s3Config: Pick<S3Config, "endpoint" | "accessKeyId" | "secretAccessKey" | "region" | "bucket">
+) {
   return async (): Promise<HealthReport> => {
     const extractLlmCheckPromise = runDependencyCheck(() => {
       return buildLlmClient(extractLlmConfig).models.list().then(() => {});
@@ -19,22 +24,23 @@ export function createHealthRunner(database: Database, extractLlmConfig: LlmConf
           return buildLlmClient(finalLlmConfig).models.list().then(() => {});
         });
 
-    const [firebase, extractLlm, finalLlm, cloudinary] = await Promise.all([
+    const s3Client = createS3Client(s3Config);
+    const [firebase, extractLlm, finalLlm, s3] = await Promise.all([
       runDependencyCheck(async () => {
         await database.ref("/.info/serverTimeOffset").once("value");
       }),
       extractLlmCheckPromise,
       finalLlmCheckPromise,
-      runDependencyCheck(pingCloudinary)
+      runDependencyCheck(() => pingS3(s3Client, s3Config.bucket))
     ]);
     const llm = combineLlmChecks(extractLlm, finalLlm);
 
     return {
       version: getAppVersion(),
-      ok: firebase.ok && llm.ok && cloudinary.ok,
+      ok: firebase.ok && llm.ok && s3.ok,
       firebase,
       llm,
-      cloudinary
+      s3
     };
   };
 }

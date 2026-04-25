@@ -43,7 +43,8 @@ describe("createImportHandler", () => {
           extractedText: "e",
           finalText: "f",
           imageUrl: "https://i",
-          cloudinaryPublicId: "c"
+          bucket: "b",
+          objectKey: "k"
         });
       })
     };
@@ -82,7 +83,8 @@ describe("createImportHandler", () => {
         extractedText: "e",
         finalText: "f",
         imageUrl: "https://i",
-        cloudinaryPublicId: "c"
+        bucket: "b",
+        objectKey: "k"
       }
     ]);
     expect(res.end).toHaveBeenCalled();

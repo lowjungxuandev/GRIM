@@ -7,7 +7,14 @@ import {
 } from "../../../../src/libs/configs/env.config";
 
 const requiredBase = {
-  CLOUDINARY_URL: "cloudinary://x",
+  S3_ENDPOINT: "http://127.0.0.1:9000",
+  S3_ACCESS_KEY_ID: "test",
+  S3_SECRET_ACCESS_KEY: "test",
+  S3_REGION: "us-east-1",
+  S3_PRESIGN_TTL_SECONDS: "604800",
+  S3_BUCKET_DEVELOPMENT: "grim-development",
+  S3_BUCKET_PRODUCTION: "grim-production",
+  S3_BUCKET_TESTING: "testing",
   GOOGLE_APPLICATION_CREDENTIALS: "/path/cred.json",
   FIREBASE_PROJECT_ID: "proj",
   FIREBASE_DATABASE_URL: "https://proj.firebaseio.com"

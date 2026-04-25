@@ -58,7 +58,8 @@ export class ImportService implements ImportServiceContract {
         extractedText,
         finalText: guardedFinalText,
         imageUrl: image.imageUrl,
-        cloudinaryPublicId: image.cloudinaryPublicId
+        bucket: image.bucket,
+        objectKey: image.objectKey
       });
 
       try {
@@ -75,7 +76,8 @@ export class ImportService implements ImportServiceContract {
         extractedText,
         finalText: guardedFinalText,
         imageUrl: image.imageUrl,
-        cloudinaryPublicId: image.cloudinaryPublicId
+        bucket: image.bucket,
+        objectKey: image.objectKey
       });
     } catch (error) {
       try {

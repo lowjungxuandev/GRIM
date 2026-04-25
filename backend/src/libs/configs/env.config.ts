@@ -13,7 +13,14 @@ export type LlmConfig = {
 
 export type ServerEnv = {
   PORT: number;
-  CLOUDINARY_URL: string;
+  S3_ENDPOINT: string;
+  S3_ACCESS_KEY_ID: string;
+  S3_SECRET_ACCESS_KEY: string;
+  S3_REGION: string;
+  S3_BUCKET_DEVELOPMENT: string;
+  S3_BUCKET_PRODUCTION: string;
+  S3_BUCKET_TESTING: string;
+  S3_PRESIGN_TTL_SECONDS: number;
   GOOGLE_APPLICATION_CREDENTIALS?: string;
   FIREBASE_SERVICE_ACCOUNT_JSON_BASE64?: string;
   FIREBASE_PROJECT_ID: string;
@@ -43,7 +50,14 @@ export function loadServerEnv(): ServerEnv {
 
   return {
     PORT: port,
-    CLOUDINARY_URL: readRequiredEnv("CLOUDINARY_URL"),
+    S3_ENDPOINT: readRequiredEnv("S3_ENDPOINT"),
+    S3_ACCESS_KEY_ID: readRequiredEnv("S3_ACCESS_KEY_ID"),
+    S3_SECRET_ACCESS_KEY: readRequiredEnv("S3_SECRET_ACCESS_KEY"),
+    S3_REGION: readRequiredEnv("S3_REGION"),
+    S3_BUCKET_DEVELOPMENT: readRequiredEnv("S3_BUCKET_DEVELOPMENT"),
+    S3_BUCKET_PRODUCTION: readRequiredEnv("S3_BUCKET_PRODUCTION"),
+    S3_BUCKET_TESTING: readRequiredEnv("S3_BUCKET_TESTING"),
+    S3_PRESIGN_TTL_SECONDS: readRequiredIntEnv("S3_PRESIGN_TTL_SECONDS"),
     ...loadFirebaseCredentialsEnv(),
     FIREBASE_PROJECT_ID: readRequiredEnv("FIREBASE_PROJECT_ID"),
     FIREBASE_DATABASE_URL: readRequiredEnv("FIREBASE_DATABASE_URL"),
@@ -54,6 +68,13 @@ export function loadServerEnv(): ServerEnv {
     GRIM_PROMPTS_DIR: readOptionalEnv("GRIM_PROMPTS_DIR"),
     GRIM_PROMPT_ADMIN_SECRET: readOptionalEnv("GRIM_PROMPT_ADMIN_SECRET")
   };
+}
+
+export function resolveS3Bucket(env: Pick<ServerEnv, "S3_BUCKET_DEVELOPMENT" | "S3_BUCKET_PRODUCTION" | "S3_BUCKET_TESTING">): string {
+  const nodeEnv = (process.env.NODE_ENV ?? "development").trim().toLowerCase();
+  if (nodeEnv === "production") return env.S3_BUCKET_PRODUCTION;
+  if (nodeEnv === "test") return env.S3_BUCKET_TESTING;
+  return env.S3_BUCKET_DEVELOPMENT;
 }
 
 function readOptionalEnv(name: string): string | undefined {
@@ -69,6 +90,25 @@ function readRequiredEnv(name: string): string {
   }
 
   return value;
+}
+
+function readOptionalIntEnv(name: string): number | undefined {
+  const raw = readOptionalEnv(name);
+  if (!raw) return undefined;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Invalid ${name}: ${raw}`);
+  }
+  return Math.floor(value);
+}
+
+function readRequiredIntEnv(name: string): number {
+  const raw = readRequiredEnv(name);
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Invalid ${name}: ${raw}`);
+  }
+  return Math.floor(value);
 }
 
 function loadFirebaseCredentialsEnv(): Pick<

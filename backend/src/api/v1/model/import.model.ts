@@ -4,13 +4,14 @@ export type GrimUpload = {
   extractedText?: string;
   finalText?: string;
   imageUrl?: string;
-  cloudinaryPublicId?: string;
+  bucket?: string;
+  objectKey?: string;
   errorMessage?: string;
 };
 
 export type GrimUploadRow = GrimUpload & { id: string };
 
-/** SSE `data:` JSON for progress (after Cloudinary, before / between model calls). */
+/** SSE `data:` JSON for progress (after storage upload, before / between model calls). */
 export type ImportStreamStatusBody = {
   status: "extracting_text" | "analyzing_text" | "format_guard";
 };

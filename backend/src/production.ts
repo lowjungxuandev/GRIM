@@ -5,7 +5,7 @@ import { CaptureService } from "./api/v1/services/capture.service";
 import { ExportService } from "./api/v1/services/export.service";
 import { ImportService } from "./api/v1/services/import.service";
 import type { ServerEnv } from "./libs/configs/env.config";
-import { CloudinaryImageStore } from "./libs/cloudinary/utils";
+import { S3ImageStore, type S3Config } from "./libs/s3/s3.util";
 import { DEFAULT_FCM_BROADCAST_TOPIC, FirebaseNotifier } from "./libs/firebase/fcm";
 import { getFirebaseAdminApp } from "./libs/firebase/admin";
 import {
@@ -19,7 +19,8 @@ import {
   DEFAULT_OPENROUTER_BASE_URL,
   DEFAULT_OPENROUTER_MODEL,
   type LlmConfig,
-  type LlmProvider
+  type LlmProvider,
+  resolveS3Bucket
 } from "./libs/configs/env.config";
 import { ProviderOrchestrator } from "./libs/utils/provider_orchestrator.util";
 
@@ -41,6 +42,14 @@ export function createProductionDependencies(env: ServerEnv): AppDependencies {
     env.GRIM_FCM_TOPIC ?? DEFAULT_FCM_BROADCAST_TOPIC
   );
   const captureService = new CaptureService(notifier);
+  const s3Config: S3Config = {
+    endpoint: env.S3_ENDPOINT,
+    accessKeyId: env.S3_ACCESS_KEY_ID,
+    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+    region: env.S3_REGION,
+    bucket: resolveS3Bucket(env),
+    presignTtlSeconds: env.S3_PRESIGN_TTL_SECONDS
+  };
   const providerOrchestrator = new ProviderOrchestrator({
     providers: buildProviderConfigs(env),
     defaultProvider: env.EXTRACT_LLM.provider,
@@ -54,7 +63,7 @@ export function createProductionDependencies(env: ServerEnv): AppDependencies {
     textExtractor: providerOrchestrator,
     finalTextBuilder: providerOrchestrator,
     finalTextFormatGuard: providerOrchestrator,
-    imageStorage: new CloudinaryImageStore(),
+    imageStorage: new S3ImageStore(s3Config),
     notifier,
     logger: console
   });
@@ -64,7 +73,7 @@ export function createProductionDependencies(env: ServerEnv): AppDependencies {
     exportService,
     captureService,
     providerService: providerOrchestrator,
-    runHealthChecks: createHealthRunner(realtimeDb, env.EXTRACT_LLM, env.FINAL_LLM),
+    runHealthChecks: createHealthRunner(realtimeDb, env.EXTRACT_LLM, env.FINAL_LLM, s3Config),
     logger: console,
     promptSettings,
     promptAdminSecret: env.GRIM_PROMPT_ADMIN_SECRET

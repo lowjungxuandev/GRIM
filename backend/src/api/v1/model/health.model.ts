@@ -9,5 +9,5 @@ export type HealthReport = {
   ok: boolean;
   firebase: DependencyCheck;
   llm: DependencyCheck;
-  cloudinary: DependencyCheck;
+  s3: DependencyCheck;
 };

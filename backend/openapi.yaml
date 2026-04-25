@@ -26,7 +26,7 @@ servers:
 
 tags:
   - name: health
-    description: Firebase, configured LLM provider, and Cloudinary readiness
+    description: Firebase, configured LLM provider, and S3 readiness
   - name: import
     description: |
       Multipart image upload (`multipart/form-data`); the file part must be named **`image`**.
@@ -51,7 +51,7 @@ paths:
       description: |
         Parallel checks: **Firebase** Realtime Database (`/.info/serverTimeOffset`),
         **extract** and **final** LLM stage configs via the models API (aggregated into the single `llm` result field),
-        **Cloudinary** management ping.
+        **S3** bucket readiness (connectivity + bucket exists).
 
         | HTTP | Meaning |
         |------|---------|
@@ -77,7 +77,7 @@ paths:
                     llm:
                       ok: true
                       latencyMs: 156
-                    cloudinary:
+                    s3:
                       ok: true
                       latencyMs: 89
         "503":
@@ -99,7 +99,7 @@ paths:
                       ok: false
                       latencyMs: 42
                       error: 401 Unauthorized
-                    cloudinary:
+                    s3:
                       ok: true
                       latencyMs: 71
 
@@ -126,14 +126,14 @@ paths:
 
         **LLM prompts (configurable):** the extract stage uses current **`extractTextPrompt`** with the uploaded image. The analyzing stage receives **system** = current **`analyzingTextPrompt`** and **user** = the extract stage’s **`extractedText`** string. The format guard stage receives **system** = current **`formatGuardPrompt`** and **user** = only the step-10 final text. Defaults ask for structured JSON (questions/options/type/answer) and reject wrong patterns before the Firebase write. The extract and final stages may use different provider configs. Change prompts with **`GET/PUT /api/v1/prompts`**.
 
-        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **Cloudinary** (image) → **extract LLM config** (image text extraction) → **final LLM config** (final text) → **format guard LLM pass** (hardens final text format) → **Realtime Database** write under `uploads/{id}` (no row before that), then receiver FCM topic messages on success.
+        **Response:** **200** with **`Content-Type: text/event-stream`** (Server-Sent Events). The HTTP connection stays open until the pipeline completes. After the multipart **image** is buffered, the server runs **S3** (image upload) → **extract LLM config** (image text extraction) → **final LLM config** (final text) → **format guard LLM pass** (hardens final text format) → **Realtime Database** write under `uploads/{id}` (no row before that), then receiver FCM topic messages on success.
 
         Each SSE message is one `data:` line whose value is a single JSON object:
 
-        1. `{"status":"extracting_text"}` — after Cloudinary, before image text extraction.
+        1. `{"status":"extracting_text"}` — after image storage upload, before image text extraction.
         2. `{"status":"analyzing_text"}` — after extraction, before final text.
         3. `{"status":"format_guard"}` — after final text generation, before format hardening and Firebase write.
-        4. On success: a JSON object with `id`, `createdAt`, `updatedAt`, `extractedText`, guarded `finalText`, `imageUrl`, and `cloudinaryPublicId` (same shape as stored under `uploads/{id}`).
+        4. On success: a JSON object with `id`, `createdAt`, `updatedAt`, `extractedText`, guarded `finalText`, `imageUrl`, `bucket`, and `objectKey` (same shape as stored under `uploads/{id}`).
         5. On failure: `{"error":{"code":"…","message":"…"}}` (same `code` / `message` style as `ErrorBody` elsewhere). If **image storage** fails before any `status` event, the stream may contain **only** this terminal `data:` line. If the stream has already started, this appears as the last `data:` line instead of a separate HTTP error body.
 
         **HTTP 500** with a normal JSON `ErrorBody` is used only when the request fails **before** any SSE bytes are sent (for example an internal error in the handler). Once `text/event-stream` has started, failures use the terminal SSE `data:` object above.
@@ -189,7 +189,7 @@ paths:
 
                     data: {"status":"format_guard"}
 
-                    data: {"id":"upl_abc","createdAt":1745000001000,"updatedAt":1745000001500,"extractedText":"…","finalText":"…","imageUrl":"https://res.cloudinary.com/demo/image/upload/v1/grim/upl_abc.png","cloudinaryPublicId":"grim/upl_abc"}
+                    data: {"id":"upl_abc","createdAt":1745000001000,"updatedAt":1745000001500,"extractedText":"…","finalText":"…","imageUrl":"https://minio.example.test/grim-development/uploads/upl_abc","bucket":"grim-development","objectKey":"uploads/upl_abc"}
 
                 pipelineError:
                   summary: Terminal error after stream started
@@ -433,7 +433,7 @@ paths:
                       - createdAt: 1745000001000
                         updatedAt: 1745000001500
                         finalText: "Rewritten answer text."
-                        imageUrl: https://res.cloudinary.com/demo/image/upload/v1/grim/upl_abc.png
+                        imageUrl: https://minio.example.test/grim-development/uploads/upl_abc
                       - createdAt: 1744999999000
                         updatedAt: 1744999999500
                         errorMessage: "provider failure"
@@ -612,7 +612,7 @@ components:
 
     IntegrationHealthReport:
       type: object
-      required: [version, ok, firebase, llm, cloudinary]
+      required: [version, ok, firebase, llm, s3]
       properties:
         version:
           type: string
@@ -620,13 +620,13 @@ components:
           example: 0.1.5
         ok:
           type: boolean
-          description: True only when **firebase**, **llm**, and **cloudinary** are all `ok`
+          description: True only when **firebase**, **llm**, and **s3** are all `ok`
           example: true
         firebase:
           $ref: "#/components/schemas/DependencyCheck"
         llm:
           $ref: "#/components/schemas/DependencyCheck"
-        cloudinary:
+        s3:
           $ref: "#/components/schemas/DependencyCheck"
 
     ImportStreamStatus:
@@ -665,7 +665,9 @@ components:
         imageUrl:
           type: string
           format: uri
-        cloudinaryPublicId:
+        bucket:
+          type: string
+        objectKey:
           type: string
 
     ImportStreamTerminalError:
@@ -770,7 +772,7 @@ components:
           type: string
           format: uri
           description: Present when the pipeline completed successfully
-          example: https://res.cloudinary.com/demo/image/upload/v1/grim/upl_abc.png
+          example: https://minio.example.test/grim-development/uploads/upl_abc
         errorMessage:
           type: string
           description: Present when the pipeline failed

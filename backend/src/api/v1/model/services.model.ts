@@ -3,7 +3,8 @@ import type { LlmProvider } from "../../../libs/configs/env.config";
 
 export type UploadedImage = {
   imageUrl: string;
-  cloudinaryPublicId: string;
+  bucket: string;
+  objectKey: string;
 };
 
 export interface UploadRepository {
