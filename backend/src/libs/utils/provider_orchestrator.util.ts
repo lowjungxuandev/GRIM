@@ -67,7 +67,8 @@ export class ProviderOrchestrator implements ImageTextExtractor, FinalTextBuilde
           baseURL: config.final.baseURL,
           getExtractPromptText: options.getExtractPromptText,
           getAnalyzingSystemPrompt: options.getAnalyzingSystemPrompt,
-          getFormatGuardSystemPrompt: options.getFormatGuardSystemPrompt
+          getFormatGuardSystemPrompt: options.getFormatGuardSystemPrompt,
+          enableWebSearchInAnalyze: provider === "openai"
         })
       });
     }

@@ -38,6 +38,7 @@ export type OpenAICompatibleTextProcessorOptions = {
   getExtractPromptText: () => string;
   getAnalyzingSystemPrompt: () => string;
   getFormatGuardSystemPrompt: () => string;
+  enableWebSearchInAnalyze?: boolean;
   client?: OpenAICompatibleChatClient;
 };
 
@@ -47,12 +48,14 @@ export class OpenAICompatibleTextProcessor implements ImageTextExtractor, FinalT
   private readonly getExtractPromptText: () => string;
   private readonly getAnalyzingSystemPrompt: () => string;
   private readonly getFormatGuardSystemPrompt: () => string;
+  private readonly enableWebSearchInAnalyze: boolean;
 
   constructor(options: OpenAICompatibleTextProcessorOptions) {
     this.model = options.model;
     this.getExtractPromptText = options.getExtractPromptText;
     this.getAnalyzingSystemPrompt = options.getAnalyzingSystemPrompt;
     this.getFormatGuardSystemPrompt = options.getFormatGuardSystemPrompt;
+    this.enableWebSearchInAnalyze = Boolean(options.enableWebSearchInAnalyze);
     this.client =
       options.client ??
       new OpenAI({
@@ -83,6 +86,13 @@ export class OpenAICompatibleTextProcessor implements ImageTextExtractor, FinalT
   }
 
   async buildFinalText(extractedText: string): Promise<string> {
+    if (this.enableWebSearchInAnalyze) {
+      const out = await this.tryResponsesWebSearch(extractedText);
+      if (out !== null) {
+        return out;
+      }
+    }
+
     const response = await this.client.chat.completions.create({
       model: this.model,
       messages: [
@@ -114,6 +124,26 @@ export class OpenAICompatibleTextProcessor implements ImageTextExtractor, FinalT
     });
 
     return normalizeAssistantContent(response.choices?.[0]?.message?.content);
+  }
+
+  private async tryResponsesWebSearch(extractedText: string): Promise<string | null> {
+    const anyClient = this.client as any;
+    if (!anyClient?.responses?.create) {
+      return null;
+    }
+
+    const system = this.getAnalyzingSystemPrompt().trimEnd();
+    const response = await anyClient.responses.create({
+      model: this.model,
+      tools: [{ type: "web_search_preview" }],
+      input: [
+        { role: "system", content: system },
+        { role: "user", content: extractedText }
+      ]
+    });
+
+    const text = typeof response?.output_text === "string" ? response.output_text : "";
+    return text.trim() ? text.trim() : null;
   }
 }
 

@@ -11,7 +11,8 @@ import { getFirebaseAdminApp } from "./libs/firebase/admin";
 import {
   FirebaseProviderStateRepository,
   FirebaseUploadRepository,
-  getRealtimeDb
+  getRealtimeDb,
+  type RealtimeNamespace
 } from "./libs/firebase/realtime";
 import { GrimPromptSettings } from "./libs/utils/prompt.util";
 import {
@@ -34,8 +35,12 @@ export function createProductionDependencies(env: ServerEnv): AppDependencies {
   const promptSettings = GrimPromptSettings.loadFromDirectory(promptsDir);
   const firebaseApp = getFirebaseAdminApp(env);
   const realtimeDb = getRealtimeDb(firebaseApp);
-  const uploadRepository = new FirebaseUploadRepository(realtimeDb);
-  const providerStateRepository = new FirebaseProviderStateRepository(realtimeDb);
+  const namespace: RealtimeNamespace =
+    (process.env.NODE_ENV ?? "development").trim().toLowerCase() === "production"
+      ? "production"
+      : "development";
+  const uploadRepository = new FirebaseUploadRepository(realtimeDb, namespace);
+  const providerStateRepository = new FirebaseProviderStateRepository(realtimeDb, namespace);
   const exportService = new ExportService(uploadRepository);
   const notifier = new FirebaseNotifier(
     firebaseApp,

@@ -12,30 +12,35 @@ import type {
 const UPLOADS_PATH = "uploads";
 const PROVIDER_STATE_PATH = "provider_state";
 
+export type RealtimeNamespace = "development" | "production";
+
 export function getRealtimeDb(app: App): Database {
   return getDatabase(app);
 }
 
 export class FirebaseUploadRepository implements UploadRepository {
-  constructor(private readonly database: Database) {}
+  constructor(
+    private readonly database: Database,
+    private readonly namespace: RealtimeNamespace
+  ) {}
 
   async createPendingUpload(id: string, upload: GrimUpload): Promise<void> {
-    await this.database.ref(uploadPath(id)).set(upload);
+    await this.database.ref(uploadPath(this.namespace, id)).set(upload);
   }
 
   async updateUpload(id: string, updates: Partial<GrimUpload>): Promise<void> {
-    await this.database.ref(uploadPath(id)).update(updates);
+    await this.database.ref(uploadPath(this.namespace, id)).update(updates);
   }
 
   async getUpload(id: string): Promise<GrimUploadRow | null> {
-    const snapshot = await this.database.ref(uploadPath(id)).once("value");
+    const snapshot = await this.database.ref(uploadPath(this.namespace, id)).once("value");
     const value = snapshot.val() as GrimUpload | null;
     return value ? { ...value, id } : null;
   }
 
   async listUploads(limit: number): Promise<GrimUploadRow[]> {
     const snapshot = await this.database
-      .ref(UPLOADS_PATH)
+      .ref(nsPath(this.namespace, UPLOADS_PATH))
       .orderByChild("createdAt")
       .limitToLast(limit)
       .once("value");
@@ -46,10 +51,15 @@ export class FirebaseUploadRepository implements UploadRepository {
 }
 
 export class FirebaseProviderStateRepository implements ProviderStateRepository {
-  constructor(private readonly database: Database) {}
+  constructor(
+    private readonly database: Database,
+    private readonly namespace: RealtimeNamespace
+  ) {}
 
   async getProviderState(): Promise<ProviderState | null> {
-    const snapshot = await this.database.ref(PROVIDER_STATE_PATH).once("value");
+    const snapshot = await this.database
+      .ref(nsPath(this.namespace, PROVIDER_STATE_PATH))
+      .once("value");
     const value = snapshot.val() as Partial<ProviderState> | null;
     return typeof value?.current_provide === "string"
       ? ({ current_provide: value.current_provide } as ProviderState)
@@ -57,10 +67,14 @@ export class FirebaseProviderStateRepository implements ProviderStateRepository 
   }
 
   async setProviderState(state: ProviderState): Promise<void> {
-    await this.database.ref(PROVIDER_STATE_PATH).set(state);
+    await this.database.ref(nsPath(this.namespace, PROVIDER_STATE_PATH)).set(state);
   }
 }
 
-function uploadPath(id: string): string {
-  return `${UPLOADS_PATH}/${id}`;
+function uploadPath(namespace: RealtimeNamespace, id: string): string {
+  return nsPath(namespace, `${UPLOADS_PATH}/${id}`);
+}
+
+function nsPath(namespace: RealtimeNamespace, childPath: string): string {
+  return `${namespace}/${childPath.replace(/^\/+/, "")}`;
 }
