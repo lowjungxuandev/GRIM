@@ -18,7 +18,7 @@ info:
     **Prompts:** text loaded from `extract_text_prompt.txt`, `analyzing_text_prompt.txt`, and `format_guard_prompt.txt` under **`GRIM_PROMPTS_DIR`** (default `./prompts` relative to the server process). **`PUT /api/v1/prompts`** overwrites those strings on disk and updates the in-memory copy used by the next import. Optional **`GRIM_PROMPT_ADMIN_SECRET`** forces clients to send **`X-Grim-Prompt-Secret`**.
 
     **Interactive docs:** with the backend running, open **`/docs`** on the same origin for embedded [Scalar API Reference](https://scalar.com/products/api-references), or import this file’s URL elsewhere.
-  version: 0.2.1
+  version: 0.2.2
 
 servers:
   - url: /
@@ -69,7 +69,7 @@ paths:
                 allOk:
                   summary: All integrations healthy
                   value:
-                    version: 0.1.4
+                    version: 0.1.5
                     ok: true
                     firebase:
                       ok: true
@@ -90,7 +90,7 @@ paths:
                 llmUnauthorized:
                   summary: LLM provider key rejected (API reachable)
                   value:
-                    version: 0.1.4
+                    version: 0.1.5
                     ok: false
                     firebase:
                       ok: true
@@ -617,7 +617,7 @@ components:
         version:
           type: string
           description: Backend application version from `backend/package.json`
-          example: 0.1.4
+          example: 0.1.5
         ok:
           type: boolean
           description: True only when **firebase**, **llm**, and **cloudinary** are all `ok`
